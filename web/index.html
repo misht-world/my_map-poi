@@ -2,64 +2,84 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>my_map-poi — достопримечательности Больцано–Верона</title>
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
     body { font-family: system-ui, sans-serif; }
     #hud {
-      position: absolute; z-index: 1; top: 10px; left: 10px;
-      background: rgba(255,255,255,.92); padding: 8px 12px; border-radius: 8px;
+      position: absolute; z-index: 2; top: 10px; left: 10px; max-width: 240px;
+      background: rgba(255,255,255,.94); padding: 8px 12px; border-radius: 8px;
       box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 13px; line-height: 1.4;
     }
-    #hud b { color: #b3541e; }
-    #hud { max-width: 230px; }
-    #legend { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px 10px; }
-    .lg { display: flex; align-items: center; font-size: 11px; white-space: nowrap; }
-    .lg i { width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; border: 1px solid #fff; box-shadow: 0 0 0 .5px #aaa; }
-    .maplibregl-popup-content { max-width: 300px; font-size: 13px; line-height: 1.45; padding: 12px 14px; }
+    #hud-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #hud-head b { color: #b3541e; }
+    #hud-toggle { background: none; border: 0; font-size: 15px; cursor: pointer; color: #888; padding: 0 2px; }
+    #hud.collapsed #hud-body { display: none; }
+    #hud.collapsed #hud-toggle { transform: rotate(-90deg); }
+    #hud-sub { font-size: 11px; color: #888; }
+    #legend { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .lg { display: flex; align-items: center; font-size: 12px; white-space: nowrap; cursor: pointer; user-select: none; }
+    .lg i { width: 14px; text-align: center; margin-right: 5px; }
+    .lg .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; border: 1px solid #fff; box-shadow: 0 0 0 .5px #aaa; flex: none; }
+    .lg.off { opacity: .38; text-decoration: line-through; }
+    /* карточка (общая для попапа и мобильной шторки) */
+    .maplibregl-popup-content { max-width: 300px; padding: 12px 14px; }
+    .card { font-size: 13px; line-height: 1.45; }
     .poi-photo { width: 100%; border-radius: 6px; display: block; }
     .poi-attr { font-size: 10px; color: #666; margin: 3px 0 8px; }
     .poi-attr a { color: #666; }
-    .poi-name { font-weight: 700; font-size: 15px; }
-    .poi-cat { font-size: 11px; color: #666; margin: 2px 0; display: flex; align-items: center; }
-    .poi-cat i { width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
-    .poi-desc { color: #555; font-style: italic; margin-bottom: 6px; }
     .poi-site { font-size: 12px; margin: 4px 0 6px; }
     .poi-site a { color: #1a6; text-decoration: none; font-weight: 600; }
+    .poi-name { font-weight: 700; font-size: 15px; }
     .poi-name-ru { font-size: 11px; color: #999; margin: 1px 0 2px; }
-    .poi-summary { margin: 6px 0; }
-    .poi-summary.clamp { max-height: 28em; overflow: hidden; }
-    .poi-summary.clamp.expanded { max-height: none; }
-    .poi-more { display: none; background: none; border: 0; color: #1a6; font-weight: 600;
-      cursor: pointer; padding: 2px 0; font-size: 12px; }
+    .poi-cat { font-size: 11px; color: #666; margin: 2px 0; display: flex; align-items: center; }
+    .poi-cat i { margin-right: 5px; }
+    .poi-desc { color: #555; font-style: italic; margin-bottom: 6px; }
+    .poi-summary { margin: 6px 0; max-height: 14em; overflow-y: auto; overscroll-behavior: contain;
+      padding-right: 4px; }
     .poi-links a { display: inline-block; margin-right: 10px; color: #1a6; text-decoration: none; font-weight: 600; }
     .poi-links a:hover { text-decoration: underline; }
+    /* мобильная нижняя шторка */
+    #sheet {
+      position: absolute; z-index: 3; left: 0; right: 0; bottom: 0;
+      background: #fff; border-radius: 14px 14px 0 0; box-shadow: 0 -2px 12px rgba(0,0,0,.25);
+      max-height: 62vh; display: flex; flex-direction: column;
+      transform: translateY(105%); transition: transform .25s ease; visibility: hidden;
+    }
+    #sheet.open { transform: translateY(0); visibility: visible; }
+    #sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: #ccc; margin: 8px auto 2px; flex: none; }
+    #sheet-close { position: absolute; top: 8px; right: 12px; background: none; border: 0; font-size: 22px;
+      line-height: 1; color: #888; cursor: pointer; z-index: 1; }
+    #sheet-body { overflow-y: auto; padding: 6px 16px 20px; }
+    #sheet-body .poi-summary { max-height: none; overflow: visible; } /* шторка скроллится сама */
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div id="hud">
-    <b>my_map-poi</b> · пилот Больцано–Верона<br />
-    <label style="display:block;margin:6px 0 2px">Плотность точек
-      <input type="range" id="density" min="0" max="11" step="0.5" value="3" style="width:100%" />
-      <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
-    </label>
-    <span id="count">загрузка…</span>
-    <div id="legend"></div>
+    <div id="hud-head"><b>my_map-poi</b><button id="hud-toggle" title="Свернуть">▾</button></div>
+    <div id="hud-body">
+      <div id="hud-sub">пилот Больцано–Верона</div>
+      <label style="display:block;margin:6px 0 2px">Плотность точек
+        <input type="range" id="density" min="0" max="11" step="0.5" value="3" style="width:100%" />
+        <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
+      </label>
+      <span id="count">загрузка…</span>
+      <div id="legend"></div>
+    </div>
   </div>
+  <div id="sheet"><div id="sheet-grip"></div><button id="sheet-close" title="Закрыть">×</button><div id="sheet-body"></div></div>
   <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
   <script>
   (async function () {
-    // Плотность точек регулируется коллизиями symbol-слоя по значимости (score),
-    // а не хард-порогом по zoom — см. addLayer ниже.
-    // Порог для религиозных берём из нашего же конфига (свой статический файл, не внешний API).
     const scoring = await fetch('config/scoring.json').then((r) => r.json()).catch(() => ({}));
     const RELIGIOUS_MIN = scoring.religiousMinScore ?? 7;
-    // Категории (цвет + подпись) из нашего конфига — для маркеров и легенды.
     const poiTypes = await fetch('config/poi-types.json').then((r) => r.json()).catch(() => ({ categories: {} }));
     const CATEGORIES = poiTypes.categories || {};
+
+    const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
 
     const map = new maplibregl.Map({
       container: 'map',
@@ -68,75 +88,87 @@
       zoom: 8,
     });
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    window.poiMap = map; // для отладки/проверки
+    // GPS-геолокация (как в my_map-toll).
+    map.addControl(new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true,
+      showUserHeading: true,
+    }), 'top-right');
+    window.poiMap = map;
+
+    // Сворачивание HUD (для мобильной версии).
+    document.getElementById('hud-toggle').addEventListener('click', () => {
+      document.getElementById('hud').classList.toggle('collapsed');
+    });
 
     map.on('load', async () => {
       const data = await fetch('data/normalized/bolzano-verona.geojson').then(r => r.json());
-      document.getElementById('count').textContent = data.features.length + ' объектов (по значимости)';
 
       map.addSource('poi', { type: 'geojson', data });
 
-      // Круглые иконки по бакетам score. Symbol-слой (а не circle) нужен потому, что
-      // коллизии — вытеснение перекрывающихся маркеров — MapLibre делает только для symbol.
+      // Иконка категории: белый кружок + цветное кольцо (категория) + эмодзи-глиф.
+      // Symbol-слой нужен для коллизий (circle их не умеет). Кольцо сохраняет цвет-код,
+      // эмодзи делает тип узнаваемым.
       const ratio = 2;
-      function circleIcon(color, r) {
-        const s = r * 2 * ratio;
+      function catIcon(color, emoji) {
+        const R = 13, s = R * 2 * ratio;
         const cv = document.createElement('canvas'); cv.width = cv.height = s;
         const ctx = cv.getContext('2d');
-        ctx.beginPath();
-        ctx.arc(s / 2, s / 2, r * ratio - ratio, 0, 2 * Math.PI);
-        ctx.fillStyle = color; ctx.fill();
-        ctx.lineWidth = ratio; ctx.strokeStyle = '#fff'; ctx.stroke();
+        ctx.beginPath(); ctx.arc(s / 2, s / 2, R * ratio - 2 * ratio, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.lineWidth = 2.5 * ratio; ctx.strokeStyle = color; ctx.stroke();
+        ctx.font = `${R * ratio * 0.95}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(emoji || '📍', s / 2, s / 2 + ratio);
         return ctx.getImageData(0, 0, s, s);
       }
-      const R = 9;
-      // Иконка на каждую категорию (цвет из конфига) + серая для 'other'.
       for (const [key, def] of Object.entries(CATEGORIES)) {
-        map.addImage('poi-' + key, circleIcon(def.color, R), { pixelRatio: ratio });
+        map.addImage('poi-' + key, catIcon(def.color, def.emoji), { pixelRatio: ratio });
       }
-      map.addImage('poi-other', circleIcon('#9aa0a6', R), { pixelRatio: ratio });
+      map.addImage('poi-other', catIcon('#9aa0a6', '📍'), { pixelRatio: ratio });
 
-      // Коллизийный тиннинг: значимые (score) поглощают менее значимые; цвет — категория,
-      // размер — популярность (pageviews).
       map.addLayer({
         id: 'poi',
         type: 'symbol',
         source: 'poi',
         layout: {
           'icon-image': ['concat', 'poi-', ['get', 'category']],
-          // размер по популярности (pageviews_90d), сглаженно — от мелкого к крупному.
+          // размер по популярности (pageviews_90d).
           'icon-size': ['interpolate', ['linear'], ['get', 'pageviews_90d'],
-            0, 0.35, 100, 0.5, 1000, 0.75, 10000, 1.05, 50000, 1.4],
-          // score выше → sort-key ниже → символ размещается раньше → выигрывает коллизию.
+            0, 0.28, 100, 0.4, 1000, 0.62, 10000, 0.9, 50000, 1.2],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
-          // Радиус поглощения: большой на мелком zoom, сходит к нулю на крупном.
-          'icon-padding': ['interpolate', ['linear'], ['zoom'], 5, 22, 10, 8, 14, 2, 16, 0],
-          // На максимальном zoom коллизии выключаются — видно все точки, независимо от score.
+          'icon-padding': ['interpolate', ['linear'], ['zoom'], 5, 20, 10, 8, 14, 2, 16, 0],
           'icon-allow-overlap': ['step', ['zoom'], false, 16, true],
           'icon-ignore-placement': false,
         },
       });
 
-      // Легенда категорий.
+      // Легенда — кликабельная: клик прячет/показывает категорию (коллизии перекладываются).
+      const hidden = new Set();
       const legend = document.getElementById('legend');
       legend.innerHTML = Object.entries(CATEGORIES)
-        .map(([, def]) => `<span class="lg"><i style="background:${def.color}"></i>${def.label_ru}</span>`)
+        .map(([key, def]) => `<span class="lg" data-cat="${key}"><span class="dot" style="background:${def.color}"></span><i>${def.emoji || ''}</i>${def.label_ru}</span>`)
         .join('');
+      legend.addEventListener('click', (e) => {
+        const item = e.target.closest('.lg'); if (!item) return;
+        const key = item.dataset.cat;
+        if (hidden.has(key)) hidden.delete(key); else hidden.add(key);
+        item.classList.toggle('off', hidden.has(key));
+        applyFilters();
+      });
 
-      // Фильтр = религиозный порог (каждая chiesa — отдельный объект) + ползунок плотности
-      // (общий порог значимости на всех zoom, поверх zoom-адаптивных коллизий).
       const religiousRule = ['any', ['!', ['get', 'is_religious']], ['>=', ['get', 'score'], RELIGIOUS_MIN]];
       const densityInput = document.getElementById('density');
       const countEl = document.getElementById('count');
-      const SLIDER_MAX = Number(densityInput.max); // 11 ≈ верх диапазона score
+      const SLIDER_MAX = Number(densityInput.max);
 
       function applyFilters() {
-        // Ползунок = плотность: левее (меньше) → выше порог score → меньше точек.
         const cutoff = SLIDER_MAX - Number(densityInput.value);
-        map.setFilter('poi', ['all', religiousRule, ['>=', ['get', 'score'], cutoff]]);
-        // Счётчик реально показываемых (после обоих порогов; коллизии — отдельно, по zoom).
+        const notHidden = ['!', ['in', ['get', 'category'], ['literal', [...hidden]]]];
+        map.setFilter('poi', ['all', religiousRule, ['>=', ['get', 'score'], cutoff], notHidden]);
         const shown = data.features.filter((f) => {
           const p = f.properties;
+          if (hidden.has(p.category)) return false;
           if (p.is_religious && p.score < RELIGIOUS_MIN) return false;
           return p.score >= cutoff;
         }).length;
@@ -145,29 +177,39 @@
       densityInput.addEventListener('input', applyFilters);
       applyFilters();
 
+      // Клик по объекту: на десктопе — попап у точки, на мобильном — нижняя шторка.
       map.on('click', 'poi', (e) => {
         const p = e.features[0].properties;
         const [lon, lat] = e.features[0].geometry.coordinates;
-        const popup = new maplibregl.Popup({ maxWidth: '300px' })
-          .setLngLat([lon, lat])
-          .setHTML(popupHtml(p, lat, lon))
-          .addTo(map);
-        // Кнопку «показать полностью» показываем только если текст реально обрезан.
-        const el = popup.getElement();
-        const sum = el && el.querySelector('.poi-summary.clamp');
-        const more = el && el.querySelector('.poi-more');
-        if (sum && more && sum.scrollHeight > sum.clientHeight + 4) more.style.display = 'block';
+        const html = cardHtml(p, lat, lon);
+        if (isMobile()) {
+          openSheet(html);
+        } else {
+          const popup = new maplibregl.Popup({ maxWidth: '300px' }).setLngLat([lon, lat]).setHTML(html).addTo(map);
+          stopWheel(popup.getElement());
+        }
       });
       map.on('mouseenter', 'poi', () => (map.getCanvas().style.cursor = 'pointer'));
       map.on('mouseleave', 'poi', () => (map.getCanvas().style.cursor = ''));
     });
 
-    // Попап по SPEC §5. maps_url генерится тут из координат (ключ не нужен).
-    function popupHtml(p, lat, lon) {
+    // Нижняя шторка (мобильная).
+    const sheet = document.getElementById('sheet');
+    const sheetBody = document.getElementById('sheet-body');
+    function openSheet(html) { sheetBody.innerHTML = html; sheet.classList.add('open'); }
+    document.getElementById('sheet-close').addEventListener('click', () => sheet.classList.remove('open'));
+
+    // Чтобы прокрутка текста колесом не зумила карту.
+    function stopWheel(el) {
+      const s = el && el.querySelector('.poi-summary');
+      if (s) s.addEventListener('wheel', (ev) => ev.stopPropagation(), { passive: true });
+    }
+
+    function cardHtml(p, lat, lon) {
       const esc = (s) => (s == null ? '' : String(s).replace(/[&<>"]/g, (c) =>
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
-      let html = '';
+      let html = '<div class="card">';
       if (p.image_url) {
         html += `<img class="poi-photo" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" />`;
         const lic = p.img_license_url
@@ -176,31 +218,24 @@
         html += `<div class="poi-attr">© ${esc(p.img_author)} · ${lic} · ` +
           `<a href="${esc(p.img_source)}" target="_blank" rel="noopener">Commons</a></div>`;
       }
-      // Сайт объекта (P856), если есть — под фото.
       if (p.website) {
         let host = p.website; try { host = new URL(p.website).hostname.replace(/^www\./, ''); } catch {}
         html += `<div class="poi-site">🌐 <a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(host)}</a></div>`;
       }
-      // Заголовок — оригинал; русское имя мелким серым под ним (не переводим сам заголовок).
       html += `<div class="poi-name">${esc(p.name) || p.qid}</div>`;
       if (p.name_ru) html += `<div class="poi-name-ru">${esc(p.name_ru)}</div>`;
       const cat = CATEGORIES[p.category];
-      if (cat) html += `<div class="poi-cat"><i style="background:${cat.color}"></i>${esc(cat.label_ru)}</div>`;
+      if (cat) html += `<div class="poi-cat"><i>${cat.emoji || ''}</i>${esc(cat.label_ru)}</div>`;
       if (p.description) html += `<div class="poi-desc">${esc(p.description)}</div>`;
-      // Текст ограничен ~20 строками, разворачивается кнопкой (некоторые summary огромны).
-      if (p.summary) {
-        html += `<div class="poi-summary clamp">${esc(p.summary)}</div>`;
-        html += `<button class="poi-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.remove()">Показать полностью ▾</button>`;
-      }
+      if (p.summary) html += `<div class="poi-summary">${esc(p.summary)}</div>`;
       html += '<div class="poi-links">';
       if (p.wiki_url) {
-        // Текст локализован на русский, но статья — на языке источника: подсказываем язык.
         const wl = (String(p.wiki_url).match(/https:\/\/([a-z-]+)\.wikipedia/) || [])[1];
         const hint = { ru: '', it: ' (ит.)', de: ' (нем.)', en: ' (англ.)' }[wl] ?? (wl ? ` (${wl})` : '');
         html += `<a href="${esc(p.wiki_url)}" target="_blank" rel="noopener">Wikipedia${hint} →</a>`;
       }
       html += `<a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps →</a>`;
-      html += '</div>';
+      html += '</div></div>';
       return html;
     }
   })();

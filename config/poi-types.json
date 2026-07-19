@@ -18,7 +18,8 @@
         "Q1370598": "structure of worship — культовое сооружение",
         "Q580499": "oratory — ораторий",
         "Q2977": "cathedral — собор"
-      }
+      },
+      "emoji": "⛪"
     },
     "fortress": {
       "label_ru": "Замки и дворцы",
@@ -30,14 +31,16 @@
         "Q57821": "fortification — укрепление (fort, fortress, city gate, artillery battery)",
         "Q12518": "tower — башня (bell tower, clock tower, belfry)",
         "Q82117": "city gate — городские ворота"
-      }
+      },
+      "emoji": "🏰"
     },
     "museum": {
       "label_ru": "Музеи",
       "color": "#DD8452",
       "roots": {
         "Q33506": "museum — музей (все музейные подклассы)"
-      }
+      },
+      "emoji": "🏛️"
     },
     "monument": {
       "label_ru": "Памятники и культура",
@@ -49,7 +52,8 @@
         "Q178743": "stele — стела",
         "Q839954": "archaeological site — археологический памятник",
         "Q24354": "theatre building — историческое здание театра"
-      }
+      },
+      "emoji": "🗿"
     },
     "nature": {
       "label_ru": "Природа",
@@ -73,7 +77,8 @@
         "Q6017969": "scenic viewpoint — смотровая площадка",
         "Q177305": "observation deck — обзорная площадка",
         "Q182676": "mountain hut — горный приют/рифуджо"
-      }
+      },
+      "emoji": "⛰️"
     },
     "leisure": {
       "label_ru": "Парки и досуг",
@@ -88,7 +93,8 @@
         "Q2416723": "theme park — тематический парк",
         "Q483453": "fountain — фонтан",
         "Q12280": "bridge — мост"
-      }
+      },
+      "emoji": "🎡"
     }
   }
 }
