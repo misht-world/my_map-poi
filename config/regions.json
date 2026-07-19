@@ -1,0 +1,14 @@
+{
+  "$comment": "Регион(ы) для fetch. bbox — west,south,east,north (SPEC §1). cellSize — размер клетки сетки под-bbox'ов в градусах (SPEC §2, §8). testCell — маленькая клетка вокруг Тренто для проверки одного SPARQL-запроса (CLAUDE.md шаг 2).",
+  "default": "bolzano-verona",
+  "regions": {
+    "bolzano-verona": {
+      "bbox": { "west": 9.75, "south": 45.15, "east": 12.35, "north": 46.75 },
+      "cellSize": 0.3
+    }
+  },
+  "testCell": {
+    "name": "trento-core",
+    "bbox": { "west": 11.05, "south": 46.02, "east": 11.2, "north": 46.12 }
+  }
+}

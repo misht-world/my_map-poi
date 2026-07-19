@@ -1,0 +1,16 @@
+{
+  "name": "my_map-poi",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Статическая карта значимых POI на Wikidata + Wikipedia + Commons (скоринг вместо ручной курации). См. SPEC.md.",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node scripts/serve.mjs",
+    "data:fetch": "node scripts/01-fetch-wikidata.mjs --region",
+    "data:enrich": "node scripts/02-enrich.mjs",
+    "data:classify": "node scripts/03-classify.mjs",
+    "data:translate": "python scripts/translate_ru.py",
+    "data:normalize": "node scripts/04-normalize.mjs"
+  }
+}

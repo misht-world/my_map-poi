@@ -1,0 +1,94 @@
+{
+  "$comment": "Категории POI (SPEC §1a + расширение). Каждая категория — набор корневых P31-классов; объект относится к категории, если его wdt:P31/wdt:P279* достигает любого корня. whitelist для fetch = объединение всех roots. Классификация (03-classify) назначает одну категорию по приоритету (порядок ключей ниже). Цвет на карте — по категории, размер — по популярности (pageviews). Все Q-id проверены в Wikidata Query Service (label/поиск), НЕ по памяти (CLAUDE.md): напр. Q2662218 'океанариум' оказался футболистом — поэтому сверка обязательна.",
+  "blacklist": {
+    "Q486972": "human settlement — населённый пункт (город/посёлок/деревня/frazione/neighborhood)",
+    "Q56061": "administrative territorial entity — административно-территориальная единица (comune, provincia, region)"
+  },
+  "categories": {
+    "religion": {
+      "label_ru": "Религия",
+      "color": "#4C72B0",
+      "roots": {
+        "Q16970": "church building — церковь (базилика, собор — подклассы)",
+        "Q108325": "chapel — часовня",
+        "Q44613": "monastery — монастырь",
+        "Q697295": "shrine — святилище",
+        "Q3395121": "wayside shrine — придорожная капелла",
+        "Q24398318": "religious building — религиозное здание (широкий корень)",
+        "Q1370598": "structure of worship — культовое сооружение",
+        "Q580499": "oratory — ораторий",
+        "Q2977": "cathedral — собор"
+      }
+    },
+    "fortress": {
+      "label_ru": "Замки и дворцы",
+      "color": "#C44E52",
+      "roots": {
+        "Q23413": "castle — замок",
+        "Q16560": "palace — дворец",
+        "Q3950": "villa — вилла",
+        "Q57821": "fortification — укрепление (fort, fortress, city gate, artillery battery)",
+        "Q12518": "tower — башня (bell tower, clock tower, belfry)",
+        "Q82117": "city gate — городские ворота"
+      }
+    },
+    "museum": {
+      "label_ru": "Музеи",
+      "color": "#DD8452",
+      "roots": {
+        "Q33506": "museum — музей (все музейные подклассы)"
+      }
+    },
+    "monument": {
+      "label_ru": "Памятники и культура",
+      "color": "#8C6D46",
+      "roots": {
+        "Q4989906": "monument — памятник",
+        "Q5003624": "memorial — мемориал",
+        "Q860861": "sculpture — скульптура",
+        "Q178743": "stele — стела",
+        "Q839954": "archaeological site — археологический памятник",
+        "Q24354": "theatre building — историческое здание театра"
+      }
+    },
+    "nature": {
+      "label_ru": "Природа",
+      "color": "#55A868",
+      "roots": {
+        "Q8502": "mountain — гора",
+        "Q207326": "summit — вершина",
+        "Q133056": "mountain pass — горный перевал",
+        "Q54050": "hill — холм",
+        "Q34038": "waterfall — водопад",
+        "Q23397": "lake — озеро",
+        "Q131681": "reservoir — водохранилище",
+        "Q35666": "glacier — ледник",
+        "Q35509": "cave — пещера",
+        "Q150784": "canyon — каньон/ущелье",
+        "Q1174791": "escarpment — уступ/обрыв",
+        "Q179049": "nature reserve — заповедник",
+        "Q473972": "protected area — охраняемая природная территория",
+        "Q46169": "national park — национальный парк",
+        "Q23790": "natural monument — природный памятник",
+        "Q6017969": "scenic viewpoint — смотровая площадка",
+        "Q177305": "observation deck — обзорная площадка",
+        "Q182676": "mountain hut — горный приют/рифуджо"
+      }
+    },
+    "leisure": {
+      "label_ru": "Парки и досуг",
+      "color": "#8172B3",
+      "roots": {
+        "Q22698": "park — парк",
+        "Q1107656": "garden — сад",
+        "Q167346": "botanical garden — ботанический сад",
+        "Q43501": "zoo — зоопарк",
+        "Q2281788": "public aquarium — океанариум",
+        "Q194195": "amusement park — парк развлечений",
+        "Q2416723": "theme park — тематический парк",
+        "Q483453": "fountain — фонтан",
+        "Q12280": "bridge — мост"
+      }
+    }
+  }
+}

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>my_map-poi — достопримечательности Больцано–Верона</title>
+  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    body { font-family: system-ui, sans-serif; }
+    #hud {
+      position: absolute; z-index: 1; top: 10px; left: 10px;
+      background: rgba(255,255,255,.92); padding: 8px 12px; border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.25); font-size: 13px; line-height: 1.4;
+    }
+    #hud b { color: #b3541e; }
+    #hud { max-width: 230px; }
+    #legend { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px 10px; }
+    .lg { display: flex; align-items: center; font-size: 11px; white-space: nowrap; }
+    .lg i { width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; border: 1px solid #fff; box-shadow: 0 0 0 .5px #aaa; }
+    .maplibregl-popup-content { max-width: 300px; font-size: 13px; line-height: 1.45; padding: 12px 14px; }
+    .poi-photo { width: 100%; border-radius: 6px; display: block; }
+    .poi-attr { font-size: 10px; color: #666; margin: 3px 0 8px; }
+    .poi-attr a { color: #666; }
+    .poi-name { font-weight: 700; font-size: 15px; }
+    .poi-cat { font-size: 11px; color: #666; margin: 2px 0; display: flex; align-items: center; }
+    .poi-cat i { width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+    .poi-desc { color: #555; font-style: italic; margin-bottom: 6px; }
+    .poi-summary { margin: 6px 0; }
+    .poi-links a { display: inline-block; margin-right: 10px; color: #1a6; text-decoration: none; font-weight: 600; }
+    .poi-links a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="hud">
+    <b>my_map-poi</b> · пилот Больцано–Верона<br />
+    <label style="display:block;margin:6px 0 2px">Плотность точек
+      <input type="range" id="density" min="0" max="11" step="0.5" value="3" style="width:100%" />
+      <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
+    </label>
+    <span id="count">загрузка…</span>
+    <div id="legend"></div>
+  </div>
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+  <script>
+  (async function () {
+    // Плотность точек регулируется коллизиями symbol-слоя по значимости (score),
+    // а не хард-порогом по zoom — см. addLayer ниже.
+    // Порог для религиозных берём из нашего же конфига (свой статический файл, не внешний API).
+    const scoring = await fetch('config/scoring.json').then((r) => r.json()).catch(() => ({}));
+    const RELIGIOUS_MIN = scoring.religiousMinScore ?? 7;
+    // Категории (цвет + подпись) из нашего конфига — для маркеров и легенды.
+    const poiTypes = await fetch('config/poi-types.json').then((r) => r.json()).catch(() => ({ categories: {} }));
+    const CATEGORIES = poiTypes.categories || {};
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [11.1, 45.95],
+      zoom: 8,
+    });
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    window.poiMap = map; // для отладки/проверки
+
+    map.on('load', async () => {
+      const data = await fetch('data/normalized/bolzano-verona.geojson').then(r => r.json());
+      document.getElementById('count').textContent = data.features.length + ' объектов (по значимости)';
+
+      map.addSource('poi', { type: 'geojson', data });
+
+      // Круглые иконки по бакетам score. Symbol-слой (а не circle) нужен потому, что
+      // коллизии — вытеснение перекрывающихся маркеров — MapLibre делает только для symbol.
+      const ratio = 2;
+      function circleIcon(color, r) {
+        const s = r * 2 * ratio;
+        const cv = document.createElement('canvas'); cv.width = cv.height = s;
+        const ctx = cv.getContext('2d');
+        ctx.beginPath();
+        ctx.arc(s / 2, s / 2, r * ratio - ratio, 0, 2 * Math.PI);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.lineWidth = ratio; ctx.strokeStyle = '#fff'; ctx.stroke();
+        return ctx.getImageData(0, 0, s, s);
+      }
+      const R = 9;
+      // Иконка на каждую категорию (цвет из конфига) + серая для 'other'.
+      for (const [key, def] of Object.entries(CATEGORIES)) {
+        map.addImage('poi-' + key, circleIcon(def.color, R), { pixelRatio: ratio });
+      }
+      map.addImage('poi-other', circleIcon('#9aa0a6', R), { pixelRatio: ratio });
+
+      // Коллизийный тиннинг: значимые (score) поглощают менее значимые; цвет — категория,
+      // размер — популярность (pageviews).
+      map.addLayer({
+        id: 'poi',
+        type: 'symbol',
+        source: 'poi',
+        layout: {
+          'icon-image': ['concat', 'poi-', ['get', 'category']],
+          // размер по популярности (pageviews_90d), сглаженно — от мелкого к крупному.
+          'icon-size': ['interpolate', ['linear'], ['get', 'pageviews_90d'],
+            0, 0.35, 100, 0.5, 1000, 0.75, 10000, 1.05, 50000, 1.4],
+          // score выше → sort-key ниже → символ размещается раньше → выигрывает коллизию.
+          'symbol-sort-key': ['-', 0, ['get', 'score']],
+          // Радиус поглощения: большой на мелком zoom, сходит к нулю на крупном.
+          'icon-padding': ['interpolate', ['linear'], ['zoom'], 5, 22, 10, 8, 14, 2, 16, 0],
+          // На максимальном zoom коллизии выключаются — видно все точки, независимо от score.
+          'icon-allow-overlap': ['step', ['zoom'], false, 16, true],
+          'icon-ignore-placement': false,
+        },
+      });
+
+      // Легенда категорий.
+      const legend = document.getElementById('legend');
+      legend.innerHTML = Object.entries(CATEGORIES)
+        .map(([, def]) => `<span class="lg"><i style="background:${def.color}"></i>${def.label_ru}</span>`)
+        .join('');
+
+      // Фильтр = религиозный порог (каждая chiesa — отдельный объект) + ползунок плотности
+      // (общий порог значимости на всех zoom, поверх zoom-адаптивных коллизий).
+      const religiousRule = ['any', ['!', ['get', 'is_religious']], ['>=', ['get', 'score'], RELIGIOUS_MIN]];
+      const densityInput = document.getElementById('density');
+      const countEl = document.getElementById('count');
+      const SLIDER_MAX = Number(densityInput.max); // 11 ≈ верх диапазона score
+
+      function applyFilters() {
+        // Ползунок = плотность: левее (меньше) → выше порог score → меньше точек.
+        const cutoff = SLIDER_MAX - Number(densityInput.value);
+        map.setFilter('poi', ['all', religiousRule, ['>=', ['get', 'score'], cutoff]]);
+        // Счётчик реально показываемых (после обоих порогов; коллизии — отдельно, по zoom).
+        const shown = data.features.filter((f) => {
+          const p = f.properties;
+          if (p.is_religious && p.score < RELIGIOUS_MIN) return false;
+          return p.score >= cutoff;
+        }).length;
+        countEl.textContent = shown + ' из ' + data.features.length + ' объектов';
+      }
+      densityInput.addEventListener('input', applyFilters);
+      applyFilters();
+
+      map.on('click', 'poi', (e) => {
+        const p = e.features[0].properties;
+        const [lon, lat] = e.features[0].geometry.coordinates;
+        new maplibregl.Popup({ maxWidth: '300px' })
+          .setLngLat([lon, lat])
+          .setHTML(popupHtml(p, lat, lon))
+          .addTo(map);
+      });
+      map.on('mouseenter', 'poi', () => (map.getCanvas().style.cursor = 'pointer'));
+      map.on('mouseleave', 'poi', () => (map.getCanvas().style.cursor = ''));
+    });
+
+    // Попап по SPEC §5. maps_url генерится тут из координат (ключ не нужен).
+    function popupHtml(p, lat, lon) {
+      const esc = (s) => (s == null ? '' : String(s).replace(/[&<>"]/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+      let html = '';
+      if (p.image_url) {
+        html += `<img class="poi-photo" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" />`;
+        const lic = p.img_license_url
+          ? `<a href="${esc(p.img_license_url)}" target="_blank" rel="noopener">${esc(p.img_license)}</a>`
+          : esc(p.img_license);
+        html += `<div class="poi-attr">© ${esc(p.img_author)} · ${lic} · ` +
+          `<a href="${esc(p.img_source)}" target="_blank" rel="noopener">Commons</a></div>`;
+      }
+      html += `<div class="poi-name">${esc(p.name) || p.qid}</div>`;
+      const cat = CATEGORIES[p.category];
+      if (cat) html += `<div class="poi-cat"><i style="background:${cat.color}"></i>${esc(cat.label_ru)}</div>`;
+      if (p.description) html += `<div class="poi-desc">${esc(p.description)}</div>`;
+      if (p.summary) html += `<div class="poi-summary">${esc(p.summary)}</div>`;
+      html += '<div class="poi-links">';
+      if (p.wiki_url) {
+        // Текст локализован на русский, но статья — на языке источника: подсказываем язык.
+        const wl = (String(p.wiki_url).match(/https:\/\/([a-z-]+)\.wikipedia/) || [])[1];
+        const hint = { ru: '', it: ' (ит.)', de: ' (нем.)', en: ' (англ.)' }[wl] ?? (wl ? ` (${wl})` : '');
+        html += `<a href="${esc(p.wiki_url)}" target="_blank" rel="noopener">Wikipedia${hint} →</a>`;
+      }
+      html += `<a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps →</a>`;
+      html += '</div>';
+      return html;
+    }
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+# POI с координатами в заданном bbox, хотя бы одним sitelink И типом (P31) из
+# whitelist landmark-категорий (SPEC §1, §1a, §2).
+#
+# Плейсхолдеры {{WEST}} {{SOUTH}} {{EAST}} {{NORTH}} — bbox; {{WHITELIST}} {{BLACKLIST}}
+# — VALUES-списки "wd:Qxxx" из config/poi-types.json. Всё подставляется одной заменой
+# в 01-fetch-wikidata.mjs (Q-id держим в конфиге, не хардкодим в запрос). Чтобы отладить
+# в query.wikidata.org — подставь bbox числами и VALUES реальными wd:Qxxx.
+#
+# Type-фильтр (§1a): без него «координаты + sitelink» пропускает города/дороги/реки,
+# у которых sitelinks выше, чем у достопримечательностей, и скоринг это не спасает.
+# wdt:P31/wdt:P279* — instance-of/подкласс*: один корневой класс покрывает подклассы.
+# EXISTS/NOT EXISTS, а не тройка в SELECT — чтобы не плодить строки на каждый тип.
+
+SELECT ?item ?coord ?sitelinks ?image ?commons ?itemLabel ?itemDescription WHERE {
+  SERVICE wikibase:box {
+    ?item wdt:P625 ?coord .
+    bd:serviceParam wikibase:cornerWest "Point({{WEST}} {{SOUTH}})"^^geo:wktLiteral .
+    bd:serviceParam wikibase:cornerEast "Point({{EAST}} {{NORTH}})"^^geo:wktLiteral .
+  }
+  ?item wikibase:sitelinks ?sitelinks .
+  FILTER(?sitelinks > 0)
+  FILTER EXISTS {
+    ?item wdt:P31/wdt:P279* ?type .
+    VALUES ?type { {{WHITELIST}} }
+  }
+  FILTER NOT EXISTS {
+    ?item wdt:P31/wdt:P279* ?bad .
+    VALUES ?bad { {{BLACKLIST}} }
+  }
+  OPTIONAL { ?item wdt:P18 ?image . }
+  OPTIONAL { ?item wdt:P373 ?commons . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "it,de,en". }
+}

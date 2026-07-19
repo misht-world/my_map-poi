@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+# Публикует статический сайт карты. Данные (geojson) и конфиги уже закоммичены —
+# CI только собирает их в правильную раскладку (index.html в корне сайта, config/ и
+# data/ рядом, чтобы относительные пути в web/index.html резолвились под /my_map-poi/).
+# Пайплайн данных (fetch/enrich/translate) в CI НЕ гоняется — это часы и модели MT.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/**
+      - config/**
+      - data/normalized/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site/config _site/data/normalized
+          cp web/index.html _site/index.html
+          cp config/scoring.json config/poi-types.json _site/config/
+          cp data/normalized/*.geojson _site/data/normalized/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
