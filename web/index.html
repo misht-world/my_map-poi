@@ -26,7 +26,14 @@
     .poi-cat { font-size: 11px; color: #666; margin: 2px 0; display: flex; align-items: center; }
     .poi-cat i { width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
     .poi-desc { color: #555; font-style: italic; margin-bottom: 6px; }
+    .poi-site { font-size: 12px; margin: 4px 0 6px; }
+    .poi-site a { color: #1a6; text-decoration: none; font-weight: 600; }
+    .poi-name-ru { font-size: 11px; color: #999; margin: 1px 0 2px; }
     .poi-summary { margin: 6px 0; }
+    .poi-summary.clamp { max-height: 28em; overflow: hidden; }
+    .poi-summary.clamp.expanded { max-height: none; }
+    .poi-more { display: none; background: none; border: 0; color: #1a6; font-weight: 600;
+      cursor: pointer; padding: 2px 0; font-size: 12px; }
     .poi-links a { display: inline-block; margin-right: 10px; color: #1a6; text-decoration: none; font-weight: 600; }
     .poi-links a:hover { text-decoration: underline; }
   </style>
@@ -141,10 +148,15 @@
       map.on('click', 'poi', (e) => {
         const p = e.features[0].properties;
         const [lon, lat] = e.features[0].geometry.coordinates;
-        new maplibregl.Popup({ maxWidth: '300px' })
+        const popup = new maplibregl.Popup({ maxWidth: '300px' })
           .setLngLat([lon, lat])
           .setHTML(popupHtml(p, lat, lon))
           .addTo(map);
+        // Кнопку «показать полностью» показываем только если текст реально обрезан.
+        const el = popup.getElement();
+        const sum = el && el.querySelector('.poi-summary.clamp');
+        const more = el && el.querySelector('.poi-more');
+        if (sum && more && sum.scrollHeight > sum.clientHeight + 4) more.style.display = 'block';
       });
       map.on('mouseenter', 'poi', () => (map.getCanvas().style.cursor = 'pointer'));
       map.on('mouseleave', 'poi', () => (map.getCanvas().style.cursor = ''));
@@ -164,11 +176,22 @@
         html += `<div class="poi-attr">© ${esc(p.img_author)} · ${lic} · ` +
           `<a href="${esc(p.img_source)}" target="_blank" rel="noopener">Commons</a></div>`;
       }
+      // Сайт объекта (P856), если есть — под фото.
+      if (p.website) {
+        let host = p.website; try { host = new URL(p.website).hostname.replace(/^www\./, ''); } catch {}
+        html += `<div class="poi-site">🌐 <a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(host)}</a></div>`;
+      }
+      // Заголовок — оригинал; русское имя мелким серым под ним (не переводим сам заголовок).
       html += `<div class="poi-name">${esc(p.name) || p.qid}</div>`;
+      if (p.name_ru) html += `<div class="poi-name-ru">${esc(p.name_ru)}</div>`;
       const cat = CATEGORIES[p.category];
       if (cat) html += `<div class="poi-cat"><i style="background:${cat.color}"></i>${esc(cat.label_ru)}</div>`;
       if (p.description) html += `<div class="poi-desc">${esc(p.description)}</div>`;
-      if (p.summary) html += `<div class="poi-summary">${esc(p.summary)}</div>`;
+      // Текст ограничен ~20 строками, разворачивается кнопкой (некоторые summary огромны).
+      if (p.summary) {
+        html += `<div class="poi-summary clamp">${esc(p.summary)}</div>`;
+        html += `<button class="poi-more" onclick="this.previousElementSibling.classList.toggle('expanded');this.remove()">Показать полностью ▾</button>`;
+      }
       html += '<div class="poi-links">';
       if (p.wiki_url) {
         // Текст локализован на русский, но статья — на языке источника: подсказываем язык.

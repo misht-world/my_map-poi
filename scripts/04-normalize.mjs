@@ -29,6 +29,8 @@ export function toFeature(item) {
     properties: {
       qid: item.qid,
       name: item.label ?? null,
+      name_ru: item.name_ru ?? null,
+      website: item.website ?? null,
       description: item.description ?? null,
       score: Number(score({ ...item, has_image: hasImage }).toFixed(4)),
       category: item.category ?? 'other',
@@ -77,8 +79,9 @@ function main() {
     console.log('⚠ Нет categories.json (03-classify) — category=other');
   }
 
-  // Русская локализация (translate_ru.py) — опциональна: подменяем name/description/
-  // summary русскими версиями там, где перевод готов. Попап читает те же поля.
+  // Русская локализация (translate_ru.py) — опциональна. Заголовок (name) НЕ переводим —
+  // оставляем оригинал, русское имя кладём отдельным полем name_ru (в попапе — мелким
+  // серым под оригиналом). Описание и summary — по-русски.
   const ruFile = resolve(ROOT, `data/enrich/${name}.ru.json`);
   if (existsSync(ruFile)) {
     const ru = JSON.parse(readFileSync(ruFile, 'utf8'));
@@ -86,7 +89,8 @@ function main() {
     for (const it of items) {
       const r = ru[it.qid];
       if (!r) continue;
-      if (r.name_ru) it.label = r.name_ru;
+      // русское имя показываем, только если оно реально отличается от оригинала
+      if (r.name_ru && r.name_ru !== it.label) it.name_ru = r.name_ru;
       if (r.description_ru) it.description = r.description_ru;
       if (r.summary_ru) it.summary = r.summary_ru;
       it.ru_native = Boolean(r.ru_native);
@@ -95,6 +99,14 @@ function main() {
     console.log(`Локализовано на русский: ${localized}/${items.length}`);
   } else {
     console.log('⚠ Нет ru.json (translate_ru.py) — текст на языке источника');
+  }
+
+  // Официальный сайт (P856, enrich-website.mjs) — опционально.
+  const siteFile = resolve(ROOT, `data/enrich/${name}.website.json`);
+  if (existsSync(siteFile)) {
+    const sites = JSON.parse(readFileSync(siteFile, 'utf8'));
+    for (const it of items) if (sites[it.qid]) it.website = sites[it.qid];
+    console.log(`С сайтом: ${items.filter((i) => i.website).length}/${items.length}`);
   }
 
   const fc = toFeatureCollection(items);
