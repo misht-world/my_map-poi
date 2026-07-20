@@ -153,9 +153,12 @@ async function main() {
 
   for await (const line of rl) {
     seen++;
-    if (seen <= skipTo) { if (seen % 5e6 === 0) console.log(`  …перемотка ${(seen / 1e6).toFixed(0)}M`); continue; }
+    if (seen <= skipTo) {
+      if (seen % 1e6 === 0) console.log(`  …перемотка ${(seen / 1e6).toFixed(1)}M / ${(skipTo / 1e6).toFixed(1)}M`);
+      continue;
+    }
     if (line.length < 40 || !line.includes('"P625"')) { // быстрый отсев: нет координат
-      if (seen % 2e6 === 0) { save(); progress(); }
+      if (seen % 1e6 === 0) { save(); progress(); }
       continue;
     }
     const s = line.endsWith(',') ? line.slice(0, -1) : line;
@@ -163,7 +166,7 @@ async function main() {
     try { e = JSON.parse(s); } catch { continue; }
     const rec = extract(e);
     if (rec) { out.write(JSON.stringify(rec) + '\n'); matched++; }
-    if (seen % 2e6 === 0) { save(); progress(); }
+    if (seen % 1e6 === 0) { save(); progress(); }
   }
 
   out.end();
