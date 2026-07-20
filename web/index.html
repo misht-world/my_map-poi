@@ -135,11 +135,12 @@
           ctx.moveTo(cx - h, cy + h * 0.75); ctx.lineTo(cx - h * 0.3, cy - h * 0.55);
           ctx.lineTo(cx + h * 0.05, cy + h * 0.15); ctx.lineTo(cx + h * 0.45, cy - h * 0.85);
           ctx.lineTo(cx + h, cy + h * 0.75); ctx.closePath(); ctx.fill();
-        } else if (cat === 'leisure') { // колесо обозрения (жирное, 4 спицы)
-          ctx.lineWidth = h * 0.22;
-          ctx.beginPath(); ctx.arc(cx, cy, h * 0.78, 0, 2 * Math.PI); ctx.stroke();
-          for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + h * 0.78 * Math.cos(a), cy + h * 0.78 * Math.sin(a)); ctx.stroke(); }
-          ctx.beginPath(); ctx.arc(cx, cy, h * 0.26, 0, 2 * Math.PI); ctx.fill();
+        } else if (cat === 'leisure') { // воздушный шарик (развлечения)
+          ctx.beginPath(); ctx.ellipse(cx, cy - h * 0.22, h * 0.6, h * 0.72, 0, 0, 2 * Math.PI); ctx.fill();
+          // узелок
+          ctx.beginPath(); ctx.moveTo(cx - h * 0.14, cy + h * 0.48); ctx.lineTo(cx + h * 0.14, cy + h * 0.48); ctx.lineTo(cx, cy + h * 0.66); ctx.closePath(); ctx.fill();
+          // верёвочка
+          ctx.lineWidth = h * 0.1; ctx.beginPath(); ctx.moveTo(cx, cy + h * 0.66); ctx.quadraticCurveTo(cx + h * 0.22, cy + h * 0.85, cx + h * 0.05, cy + h); ctx.stroke();
         } else { // прочее — точка
           ctx.beginPath(); ctx.arc(cx, cy, h * 0.45, 0, 2 * Math.PI); ctx.fill();
         }
