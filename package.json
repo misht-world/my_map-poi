@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "node scripts/serve.mjs",
+    "data:dump": "curl -C - -L --retry 20 --retry-delay 10 -o D:/wikidata-dump/latest-all.json.gz https://dumps.wikimedia.org/wikidatawiki/entities/latest-all.json.gz",
     "data:fetch": "node scripts/01-fetch-wikidata.mjs --region",
     "data:enrich": "node scripts/02-enrich.mjs",
     "data:classify": "node scripts/03-classify.mjs",

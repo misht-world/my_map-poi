@@ -137,12 +137,17 @@ def main():
     import argostranslate.translate as tr
 
     def mt(text, lang):
+        # Нет модели для языка (ceb/lld/vec…) → перевод не случится. Лучше вернуть None
+        # (пусто), чем оставить чужой язык: детектируем по отсутствию кириллицы в выводе.
         if not text:
             return None
         try:
-            return tr.translate(text, lang, "ru")
+            out = tr.translate(text, lang, "ru")
+            if out and re.search(r"[А-Яа-яЁё]", out):
+                return out
         except Exception:
-            return text  # не роняем прогон — оставляем оригинал
+            pass
+        return None
 
     log("translating gaps (may take ~40+ min for full region)...")
     processed = 0

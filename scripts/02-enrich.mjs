@@ -25,9 +25,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const UA =
   'my_map-poi/0.0 (https://github.com/misht-world/my_map-poi; misht.world@gmail.com) node-fetch';
 
-// Порядок предпочтения языка (SPEC §8): итальянский по умолчанию, немецкий как fallback
-// (граница Южного Тироля), затем английский, затем любая другая вики.
-const LANG_PREFERENCE = ['it', 'de', 'en'];
+// Порядок предпочтения языка вики (для summary/pageviews). it/de/en — регион Южного
+// Тироля, дальше — языки, для которых есть офлайн-модель перевода → русский (install_mt_models.py),
+// чтобы текст можно было перевести. Бот-вики (ceb/war — миллионы автозаглушек) отодвинуты
+// в самый конец: берём их только если реальной статьи нет вообще.
+const LANG_PREFERENCE = ['it', 'de', 'en', 'fr', 'es', 'pt', 'nl', 'pl', 'cs', 'ro',
+  'sv', 'uk', 'ja', 'ca', 'fi', 'da', 'hu', 'el', 'tr', 'sl', 'sk'];
+const BOT_WIKIS = new Set(['cebwiki', 'warwiki']);
 
 // Ключи sitelinks одиночных не-википедийных проектов (в отличие от xxwiki-википедий).
 const NON_WIKIPEDIA_KEYS = new Set([
@@ -53,20 +57,26 @@ export function stripHtml(html) {
 
 /**
  * Выбор вики-статьи для объекта из карты sitelinks (wiki-код → title).
- * it > de > en > любая другая википедия. Возвращает { lang, title } или null.
+ * Приоритет: LANG_PREFERENCE (переводимые языки) > любая не-бот википедия > бот-вики
+ * (крайний случай). Возвращает { lang, title } или null.
  */
 export function chooseSitelink(sitelinks) {
   for (const lang of LANG_PREFERENCE) {
     const key = `${lang}wiki`;
     if (sitelinks[key]) return { lang, title: sitelinks[key].title };
   }
-  // любая другая википедия: ключ вида "xxwiki". Сестринские проекты с языком
-  // (frwikisource, dewikivoyage…) не кончаются на "wiki" и отсекаются сами; одиночные
-  // не-википедийные проекты (commonswiki и т.п.) исключаем явным набором.
+  // любая другая (не-бот) википедия: ключ вида "xxwiki". Сестринские проекты с языком
+  // (frwikisource…) не кончаются на "wiki" и отсекаются; одиночные не-википедийные —
+  // явным набором; бот-вики (ceb/war) откладываем на последний проход.
+  const isWiki = (key) => key.endsWith('wiki') && !NON_WIKIPEDIA_KEYS.has(key);
   for (const key of Object.keys(sitelinks)) {
-    if (key.endsWith('wiki') && !NON_WIKIPEDIA_KEYS.has(key)) {
+    if (isWiki(key) && !BOT_WIKIS.has(key)) {
       return { lang: key.replace(/wiki$/, ''), title: sitelinks[key].title };
     }
+  }
+  // последний резерв — бот-вики (лучше, чем ничего, но текст скорее всего не переведём)
+  for (const key of Object.keys(sitelinks)) {
+    if (isWiki(key)) return { lang: key.replace(/wiki$/, ''), title: sitelinks[key].title };
   }
   return null;
 }
