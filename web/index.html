@@ -274,10 +274,12 @@
       if (p.description) html += `<div class="poi-desc">${esc(p.description)}</div>`;
       if (p.summary) html += `<div class="poi-summary">${esc(p.summary)}</div>`;
       html += '<div class="poi-links">';
-      if (p.wiki_url) {
-        const wl = (String(p.wiki_url).match(/https:\/\/([a-z-]+)\.wikipedia/) || [])[1];
-        const hint = { ru: '', it: ' (ит.)', de: ' (нем.)', en: ' (англ.)' }[wl] ?? (wl ? ` (${wl})` : '');
-        html += `<a href="${esc(p.wiki_url)}" target="_blank" rel="noopener">Wikipedia${hint} →</a>`;
+      // Если есть статья в ru.wikipedia — ведём на неё; иначе на язык источника с подсказкой.
+      const wikiUrl = p.wiki_ru_url || p.wiki_url;
+      if (wikiUrl) {
+        const wl = (String(wikiUrl).match(/https:\/\/([a-z-]+)\.wikipedia/) || [])[1];
+        const hint = { ru: ' (рус.)', it: ' (ит.)', de: ' (нем.)', en: ' (англ.)' }[wl] ?? (wl ? ` (${wl})` : '');
+        html += `<a href="${esc(wikiUrl)}" target="_blank" rel="noopener">Wikipedia${hint} →</a>`;
       }
       html += `<a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps →</a>`;
       html += '</div></div>';

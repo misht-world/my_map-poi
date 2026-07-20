@@ -40,6 +40,7 @@ export function toFeature(item) {
       pageviews_90d: item.pageviews_90d ?? 0,
       summary: item.summary ?? null,
       wiki_url: item.wiki_url ?? null,
+      wiki_ru_url: item.wiki_ru_url ?? null,
       image_url: hasImage ? item.image_url : null,
       img_author: hasImage ? attr.author ?? null : null,
       img_license: hasImage ? attr.license ?? null : null,
@@ -99,6 +100,14 @@ function main() {
     console.log(`Локализовано на русский: ${localized}/${items.length}`);
   } else {
     console.log('⚠ Нет ru.json (translate_ru.py) — текст на языке источника');
+  }
+
+  // Ссылка на статью в ru.wikipedia (enrich-ruwiki.mjs), если есть — опционально.
+  const ruwikiFile = resolve(ROOT, `data/enrich/${name}.ruwiki.json`);
+  if (existsSync(ruwikiFile)) {
+    const ruw = JSON.parse(readFileSync(ruwikiFile, 'utf8'));
+    for (const it of items) if (ruw[it.qid]) it.wiki_ru_url = ruw[it.qid];
+    console.log(`С ru.wikipedia: ${items.filter((i) => i.wiki_ru_url).length}/${items.length}`);
   }
 
   // Официальный сайт (P856, enrich-website.mjs) — опционально.
