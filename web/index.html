@@ -23,6 +23,7 @@
     .lg { display: flex; align-items: center; font-size: 12px; white-space: nowrap; cursor: pointer; user-select: none; }
     .lg i { width: 14px; text-align: center; margin-right: 5px; }
     .lg .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; border: 1px solid #fff; box-shadow: 0 0 0 .5px #aaa; flex: none; }
+    .lg-ic { width: 18px; height: 18px; margin-right: 6px; flex: none; }
     .lg.off { opacity: .38; text-decoration: line-through; }
     /* карточка (общая для попапа и мобильной шторки) */
     .maplibregl-popup-content { max-width: 300px; padding: 12px 14px; }
@@ -115,10 +116,11 @@
           const w = h * 0.3;
           ctx.fillRect(cx - w / 2, cy - h, w, h * 1.9);
           ctx.fillRect(cx - h * 0.6, cy - h * 0.35, h * 1.2, w);
-        } else if (cat === 'fortress') { // крепостная стена с зубцами
-          ctx.fillRect(cx - h * 0.85, cy - h * 0.15, h * 1.7, h * 0.95);
-          const mw = h * 0.42;
-          [-h * 0.85, -mw / 2, h * 0.85 - mw].forEach((x) => ctx.fillRect(cx + x, cy - h * 0.75, mw, h * 0.6));
+        } else if (cat === 'fortress') { // башня с крупными зубцами
+          const wall = h * 1.5, x0 = cx - wall / 2;
+          ctx.fillRect(x0, cy - h * 0.05, wall, h * 0.9);
+          const mw = wall * 0.26, gap = (wall - 3 * mw) / 2; // 3 зубца, 2 промежутка
+          for (let k = 0; k < 3; k++) ctx.fillRect(x0 + k * (mw + gap), cy - h * 0.72, mw, h * 0.72);
         } else if (cat === 'museum') { // фронтон + колонны + база
           ctx.beginPath(); ctx.moveTo(cx - h, cy - h * 0.2); ctx.lineTo(cx, cy - h * 0.9); ctx.lineTo(cx + h, cy - h * 0.2); ctx.closePath(); ctx.fill();
           ctx.fillRect(cx - h, cy + h * 0.72, h * 2, h * 0.25);
@@ -133,11 +135,11 @@
           ctx.moveTo(cx - h, cy + h * 0.75); ctx.lineTo(cx - h * 0.3, cy - h * 0.55);
           ctx.lineTo(cx + h * 0.05, cy + h * 0.15); ctx.lineTo(cx + h * 0.45, cy - h * 0.85);
           ctx.lineTo(cx + h, cy + h * 0.75); ctx.closePath(); ctx.fill();
-        } else if (cat === 'leisure') { // колесо обозрения
-          ctx.lineWidth = h * 0.16;
-          ctx.beginPath(); ctx.arc(cx, cy, h * 0.82, 0, 2 * Math.PI); ctx.stroke();
-          for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + h * 0.82 * Math.cos(a), cy + h * 0.82 * Math.sin(a)); ctx.stroke(); }
-          ctx.beginPath(); ctx.arc(cx, cy, h * 0.18, 0, 2 * Math.PI); ctx.fill();
+        } else if (cat === 'leisure') { // колесо обозрения (жирное, 4 спицы)
+          ctx.lineWidth = h * 0.22;
+          ctx.beginPath(); ctx.arc(cx, cy, h * 0.78, 0, 2 * Math.PI); ctx.stroke();
+          for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + h * 0.78 * Math.cos(a), cy + h * 0.78 * Math.sin(a)); ctx.stroke(); }
+          ctx.beginPath(); ctx.arc(cx, cy, h * 0.26, 0, 2 * Math.PI); ctx.fill();
         } else { // прочее — точка
           ctx.beginPath(); ctx.arc(cx, cy, h * 0.45, 0, 2 * Math.PI); ctx.fill();
         }
@@ -157,6 +159,18 @@
       }
       map.addImage('poi-other', catIcon('#9aa0a6', 'other'), { pixelRatio: ratio });
 
+      // Тот же значок для легенды (data-URL), чтобы условные совпадали с маркерами.
+      function iconDataUrl(color, cat) {
+        const s = 40;
+        const cv = document.createElement('canvas'); cv.width = cv.height = s;
+        const ctx = cv.getContext('2d');
+        ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 2, 0, 2 * Math.PI);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
+        drawGlyph(ctx, cat, s / 2, s / 2, s / 2 * 0.52);
+        return cv.toDataURL();
+      }
+
       map.addLayer({
         id: 'poi',
         type: 'symbol',
@@ -165,7 +179,7 @@
           'icon-image': ['concat', 'poi-', ['get', 'category']],
           // размер по популярности (pageviews_90d).
           'icon-size': ['interpolate', ['linear'], ['get', 'pageviews_90d'],
-            0, 0.34, 100, 0.48, 1000, 0.72, 10000, 1.0, 50000, 1.35],
+            0, 0.5, 100, 0.62, 1000, 0.82, 10000, 1.05, 50000, 1.4],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
           'icon-padding': ['interpolate', ['linear'], ['zoom'], 5, 20, 10, 8, 14, 2, 16, 0],
           'icon-allow-overlap': ['step', ['zoom'], false, 16, true],
@@ -177,7 +191,7 @@
       const hidden = new Set();
       const legend = document.getElementById('legend');
       legend.innerHTML = Object.entries(CATEGORIES)
-        .map(([key, def]) => `<span class="lg" data-cat="${key}"><span class="dot" style="background:${def.color}"></span>${def.label_ru}</span>`)
+        .map(([key, def]) => `<span class="lg" data-cat="${key}"><img class="lg-ic" src="${iconDataUrl(def.color, key)}" alt="" />${def.label_ru}</span>`)
         .join('');
       legend.addEventListener('click', (e) => {
         const item = e.target.closest('.lg'); if (!item) return;
