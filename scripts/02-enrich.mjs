@@ -234,7 +234,7 @@ async function fetchPhotos(items) {
     const titles = batch.map((e) => `File:${e.file}`).join('|');
     const url =
       `https://commons.wikimedia.org/w/api.php?action=query&prop=imageinfo` +
-      `&iiprop=url|extmetadata&iiextmetadatafilter=Artist|LicenseShortName|LicenseUrl` +
+      `&iiprop=url|extmetadata&iiurlwidth=96&iiextmetadatafilter=Artist|LicenseShortName|LicenseUrl` +
       `&titles=${encodeURIComponent(titles)}&format=json&origin=*`;
     const j = await getJson(url);
     const byFile = new Map();
@@ -250,6 +250,7 @@ async function fetchPhotos(items) {
       if (!author || !license) continue; // нет атрибуции — фото не берём
       result.set(e.qid, {
         image_url: info.url,
+        thumb_url: info.thumburl ?? null, // CORS-чистое превью upload.wikimedia (для фото-маркеров)
         image_page: info.descriptionurl,
         image_attribution: {
           author,
@@ -352,6 +353,7 @@ async function main() {
       summary: s?.summary ?? null,
       wiki_url: s?.wiki_url ?? null,
       image_url: ph?.image_url ?? null,
+      thumb_url: ph?.thumb_url ?? null,
       image_page: ph?.image_page ?? null,
       image_attribution: ph?.image_attribution ?? null,
     };

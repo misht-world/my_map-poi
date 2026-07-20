@@ -42,6 +42,7 @@ export function toFeature(item) {
       wiki_url: item.wiki_url ?? null,
       wiki_ru_url: item.wiki_ru_url ?? null,
       image_url: hasImage ? item.image_url : null,
+      thumb_url: hasImage ? item.thumb_url ?? null : null,
       img_author: hasImage ? attr.author ?? null : null,
       img_license: hasImage ? attr.license ?? null : null,
       img_license_url: hasImage ? attr.license_url ?? null : null,
@@ -119,6 +120,13 @@ function main() {
   }
 
   const fc = toFeatureCollection(items);
+  // Мета для блока «о данных» на карте (дата сборки, источники).
+  fc.meta = {
+    built: new Date().toISOString().slice(0, 10),
+    region: name,
+    count: fc.features.length,
+    sources: 'Wikidata (CC0), Wikipedia (CC BY-SA), Wikimedia Commons',
+  };
 
   mkdirSync(resolve(ROOT, 'data/normalized'), { recursive: true });
   const out = resolve(ROOT, `data/normalized/${name}.geojson`);

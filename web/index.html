@@ -24,6 +24,10 @@
     .lg i { width: 14px; text-align: center; margin-right: 5px; }
     .lg .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; border: 1px solid #fff; box-shadow: 0 0 0 .5px #aaa; flex: none; }
     .lg-ic { width: 18px; height: 18px; margin-right: 6px; flex: none; }
+    #about { margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px; }
+    #about-toggle { font-size: 11px; color: #888; text-decoration: none; }
+    #about-body { font-size: 10px; color: #777; line-height: 1.55; margin-top: 5px; }
+    #about-body a { color: #1a6; }
     .lg.off { opacity: .38; text-decoration: line-through; }
     /* карточка (общая для попапа и мобильной шторки) */
     .maplibregl-popup-content { max-width: 300px; padding: 12px 14px; }
@@ -69,6 +73,10 @@
       </label>
       <span id="count">загрузка…</span>
       <div id="legend"></div>
+      <div id="about">
+        <a href="#" id="about-toggle">ⓘ О данных и правах</a>
+        <div id="about-body" hidden></div>
+      </div>
     </div>
   </div>
   <div id="sheet"><div id="sheet-grip"></div><button id="sheet-close" title="Закрыть">×</button><div id="sheet-body"></div></div>
@@ -177,15 +185,63 @@
         type: 'symbol',
         source: 'poi',
         layout: {
-          'icon-image': ['concat', 'poi-', ['get', 'category']],
-          // размер по популярности (pageviews_90d).
+          // Фото-иконка для топ-объектов (грузится асинхронно), иначе — глиф категории.
+          'icon-image': ['coalesce',
+            ['image', ['concat', 'photo-', ['get', 'qid']]],
+            ['image', ['concat', 'poi-', ['get', 'category']]]],
+          // размер по популярности (pageviews_90d); крупнее, особенно мелкие.
           'icon-size': ['interpolate', ['linear'], ['get', 'pageviews_90d'],
-            0, 0.5, 100, 0.62, 1000, 0.82, 10000, 1.05, 50000, 1.4],
+            0, 0.62, 100, 0.76, 1000, 0.98, 10000, 1.2, 50000, 1.55],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
           'icon-padding': ['interpolate', ['linear'], ['zoom'], 5, 20, 10, 8, 14, 2, 16, 0],
           'icon-allow-overlap': ['step', ['zoom'], false, 16, true],
           'icon-ignore-placement': false,
         },
+      });
+
+      // Фото-маркеры для самых значимых объектов: круглое фото + цветное кольцо категории.
+      // Грузятся асинхронно; icon-image (coalesce выше) подхватит их, когда появятся. Если
+      // фото не загрузилось / CORS — тихо остаётся глиф. Ограничено топ-N, чтобы не тормозить.
+      function loadPhotoIcon(qid, url, color) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const S = 56 * ratio, r = S / 2 - 2.5 * ratio;
+            const cv = document.createElement('canvas'); cv.width = cv.height = S;
+            const ctx = cv.getContext('2d');
+            ctx.save();
+            ctx.beginPath(); ctx.arc(S / 2, S / 2, r, 0, 2 * Math.PI); ctx.clip();
+            const scale = Math.max(S / img.width, S / img.height);
+            const dw = img.width * scale, dh = img.height * scale;
+            ctx.drawImage(img, (S - dw) / 2, (S - dh) / 2, dw, dh);
+            ctx.restore();
+            ctx.beginPath(); ctx.arc(S / 2, S / 2, r, 0, 2 * Math.PI);
+            ctx.lineWidth = 3 * ratio; ctx.strokeStyle = color; ctx.stroke();
+            if (!map.hasImage('photo-' + qid)) map.addImage('photo-' + qid, ctx.getImageData(0, 0, S, S), { pixelRatio: ratio });
+          } catch (e) { /* tainted canvas / CORS — оставляем глиф */ }
+        };
+        img.src = url;
+      }
+      const topPhoto = data.features
+        .filter((f) => f.properties.thumb_url)
+        .sort((a, b) => b.properties.score - a.properties.score)
+        .slice(0, 160);
+      for (const f of topPhoto) {
+        const color = (CATEGORIES[f.properties.category] || {}).color || '#9aa0a6';
+        loadPhotoIcon(f.properties.qid, f.properties.thumb_url, color);
+      }
+
+      // Блок «о данных и правах» (дата сборки из meta + источники/лицензии).
+      const meta = data.meta || {};
+      const aboutBody = document.getElementById('about-body');
+      aboutBody.innerHTML =
+        `Обновлено: <b>${meta.built || '—'}</b> · объектов: ${(meta.count || data.features.length).toLocaleString('ru')}<br>` +
+        `Источники: Wikidata (CC0), тексты — Wikipedia (CC BY-SA), фото — Wikimedia Commons (лицензия указана у каждого фото).<br>` +
+        `Карта: © OpenFreeMap · данные © OpenStreetMap.<br>` +
+        `<a href="https://github.com/misht-world/my_map-poi" target="_blank" rel="noopener">Исходный код проекта</a>`;
+      document.getElementById('about-toggle').addEventListener('click', (e) => {
+        e.preventDefault(); aboutBody.hidden = !aboutBody.hidden;
       });
 
       // Легенда — кликабельная: клик прячет/показывает категорию (коллизии перекладываются).
