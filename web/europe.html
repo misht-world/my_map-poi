@@ -51,7 +51,7 @@
     <div id="hud-body">
       <div id="hud-sub">достопримечательности Европы</div>
       <label style="display:block;margin:6px 0 2px">Плотность точек
-        <input type="range" id="density" min="0" max="11" step="0.5" value="4" style="width:100%" />
+        <input type="range" id="density" min="0" max="6" step="0.25" value="3" style="width:100%" />
         <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
       </label>
       <span id="count">загрузка…</span>
@@ -66,7 +66,7 @@
   (async function () {
     const poiTypes = await fetch('config/poi-types.json').then((r) => r.json()).catch(() => ({ categories: {} }));
     const CATEGORIES = poiTypes.categories || {};
-    const RELIGIOUS_MIN = 7;
+    const RELIGIOUS_MIN = 3;
     // PMTiles раздаётся с того же origin (GitHub Pages кладёт файл рядом — см. pages.yml).
     // Same-origin → без CORS; range-запросы Pages/Fastly поддерживает.
     const PMTILES = new URL('europe.pmtiles', location.href).href;
