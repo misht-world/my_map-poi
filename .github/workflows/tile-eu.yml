@@ -35,7 +35,8 @@ jobs:
         run: |
           tippecanoe -o europe.pmtiles -Z2 -z14 -l poi \
             --drop-densest-as-needed --extend-zooms-if-still-dropping \
-            --order-descending-by=score --force europe.geojsonseq
+            --order-descending-by=score \
+            -M 1200000 --no-feature-limit --force europe.geojsonseq
           ls -lh europe.pmtiles
 
       - name: Publish PMTiles to release
@@ -45,3 +46,5 @@ jobs:
           gh release view europe-tiles --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create europe-tiles --repo "$GITHUB_REPOSITORY" --title "Europe PMTiles" --notes "Векторные тайлы POI Европы (PMTiles). Обновляется workflow tile-eu.yml."
           gh release upload europe-tiles europe.pmtiles --repo "$GITHUB_REPOSITORY" --clobber
+          # авто-редеплой Pages, чтобы новый PMTiles попал на сайт
+          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" || true
