@@ -1,0 +1,47 @@
+name: Tile Europe (tippecanoe → PMTiles)
+
+# Ручной запуск. Берёт вход (europe.geojsonseq.gz из релиза europe-src), тайлит через
+# tippecanoe в PMTiles и кладёт в релиз europe-tiles. Веб грузит PMTiles range-запросами.
+# Тяжёлый пайплайн (дамп/парс/enrich) идёт на ПК — CI только тайлит (tippecanoe тривиален на ubuntu).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+
+      - name: Build tippecanoe
+        run: |
+          git clone --depth 1 https://github.com/felt/tippecanoe.git
+          cd tippecanoe && make -j"$(nproc)" && sudo make install
+          tippecanoe --version
+
+      - name: Download input
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download europe-src --repo "$GITHUB_REPOSITORY" -p 'europe.geojsonseq.gz'
+          gunzip europe.geojsonseq.gz
+          wc -l europe.geojsonseq
+
+      - name: Tile → PMTiles
+        run: |
+          tippecanoe -o europe.pmtiles -Z2 -z14 -l poi \
+            --drop-densest-as-needed --extend-zooms-if-still-dropping \
+            --order-descending-by=score --force europe.geojsonseq
+          ls -lh europe.pmtiles
+
+      - name: Publish PMTiles to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view europe-tiles --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create europe-tiles --repo "$GITHUB_REPOSITORY" --title "Europe PMTiles" --notes "Векторные тайлы POI Европы (PMTiles). Обновляется workflow tile-eu.yml."
+          gh release upload europe-tiles europe.pmtiles --repo "$GITHUB_REPOSITORY" --clobber
