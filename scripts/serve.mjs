@@ -26,14 +26,18 @@ const TYPES = {
 const server = http.createServer(async (req, res) => {
   try {
     let urlPath = decodeURIComponent((req.url ?? '/').split('?')[0]);
-    if (urlPath === '/' || urlPath === '') urlPath = '/web/index.html';
-    // защита от path traversal
-    const filePath = normalize(resolve(ROOT, '.' + urlPath));
-    if (!filePath.startsWith(ROOT)) {
+    if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
+    // Раздаём как GitHub Pages: сначала web/<path> (index.html, europe.html, *-meta.json),
+    // затем корень (config/, data/). Так относительные пути в страницах сходятся везде.
+    const webPath = normalize(resolve(ROOT, 'web', '.' + urlPath));
+    const rootPath = normalize(resolve(ROOT, '.' + urlPath));
+    if (!webPath.startsWith(resolve(ROOT, 'web')) && !rootPath.startsWith(ROOT)) {
       res.writeHead(403).end('Forbidden');
       return;
     }
-    const body = await readFile(filePath);
+    let filePath = webPath;
+    let body = await readFile(webPath).catch(() => null);
+    if (body === null) { filePath = rootPath; body = await readFile(rootPath); }
     res.writeHead(200, { 'Content-Type': TYPES[extname(filePath)] ?? 'application/octet-stream' });
     res.end(body);
   } catch {

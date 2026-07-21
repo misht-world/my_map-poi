@@ -68,12 +68,15 @@ async function main() {
   out.end();
 
   mkdirSync(resolve(ROOT, 'data/eu'), { recursive: true });
-  writeFileSync(resolve(ROOT, `data/eu/${name}.meta.json`), JSON.stringify({
+  const meta = {
     built: new Date().toISOString().slice(0, 10),
     region: name,
     count: n,
     sources: 'Wikidata (CC0), Wikipedia (CC BY-SA), Wikimedia Commons',
-  }));
+  };
+  writeFileSync(resolve(ROOT, `data/eu/${name}.meta.json`), JSON.stringify(meta));
+  // Копия для сайта (маленькая, коммитится и деплоится с web/).
+  writeFileSync(resolve(ROOT, `web/${name}-meta.json`), JSON.stringify(meta));
 
   console.log(`Регион "${name}": ${n} фич`);
   console.log('по категориям:', JSON.stringify(catCount));

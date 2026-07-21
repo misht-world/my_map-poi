@@ -33,11 +33,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Assemble site
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p _site/config _site/data/normalized
-          cp web/index.html _site/index.html
+          cp web/*.html web/*-meta.json _site/ 2>/dev/null || cp web/*.html _site/
           cp config/scoring.json config/poi-types.json _site/config/
           cp data/normalized/*.geojson _site/data/normalized/
+          # PMTiles Европы кладём рядом (same-origin для веба, без CORS). Если релиза ещё нет — пропускаем.
+          gh release download europe-tiles --repo "$GITHUB_REPOSITORY" -p 'europe.pmtiles' -D _site 2>/dev/null || echo "europe.pmtiles пока нет — пропуск"
+          ls -lh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
