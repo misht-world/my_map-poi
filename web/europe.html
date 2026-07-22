@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>my_map-poi — достопримечательности Европы</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 3C19 3 9 13 9 26c0 15 23 35 23 35s23-20 23-35C55 13 45 3 32 3z' fill='%23b3541e'/%3E%3Cpath d='M32 16 34.5 22.6 41.5 22.9 36 27.3 37.9 34.1 32 30.2 26.1 34.1 28 27.3 22.5 22.9 29.5 22.6z' fill='%23fff'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#b3541e" />
   <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
@@ -17,7 +19,7 @@
     #hud.collapsed #hud-body { display: none; }
     #hud.collapsed #hud-toggle { transform: rotate(-90deg); }
     #hud-sub { font-size: 11px; color: #888; }
-    #legend { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+    #legend { margin-top: 4px; display: flex; flex-direction: column; gap: 3px; }
     .lg { display: flex; align-items: center; font-size: 12px; white-space: nowrap; cursor: pointer; user-select: none; }
     .lg-ic { width: 18px; height: 18px; margin-right: 6px; flex: none; }
     .lg.off { opacity: .38; text-decoration: line-through; }
@@ -59,6 +61,7 @@
       </label>
       <span id="count">загрузка…</span>
       <div id="zoom" style="font-size:11px;color:#b3541e;font-weight:600"></div>
+      <div style="margin-top:8px;font-size:11px;color:#888">Отображаемые категории:</div>
       <div id="legend"></div>
       <div id="about"><a href="#" id="about-toggle">ⓘ О данных и правах</a><div id="about-body" hidden></div></div>
     </div>
@@ -68,6 +71,8 @@
   <script src="https://unpkg.com/pmtiles@3/dist/pmtiles.js"></script>
   <script>
   (async function () {
+    // Версия страницы — поднимать вручную при заметных изменениях интерфейса.
+    const PAGE_VERSION = 'v0.9 (2026-07-22)';
     const poiTypes = await fetch('config/poi-types.json').then((r) => r.json()).catch(() => ({ categories: {} }));
     const CATEGORIES = poiTypes.categories || {};
     const RELIGIOUS_MIN = 2;
@@ -136,7 +141,10 @@
       for (const t of TIERS) map.addLayer({
         id: t.id, type: 'symbol', source: 'poi', 'source-layer': 'poi',
         layout: {
-          'icon-image': ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]],
+          // фото-маркеры только с z8; до этого — всегда значок категории
+          'icon-image': ['step', ['zoom'],
+            ['image', ['concat', 'poi-', ['get', 'category']]],
+            8, ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]]],
           // размер по числу Википедий (значимость); просмотры добавит enrich позже.
           'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.78, 5, 0.9, 20, 1.05, 60, 1.3, 150, 1.6],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
@@ -193,13 +201,15 @@
         img.src = url;
       }
       map.on('idle', () => {
-        const feats = map.queryRenderedFeatures({ layers: LAYER_IDS }).filter((f) => f.properties.thumb_url);
-        feats.sort((a, b) => b.properties.sitelinks_count - a.properties.sitelinks_count).slice(0, 120)
+        if (map.getZoom() < 7.5) return; // фото видны с z8 — раньше и не грузим (7.5 — небольшой запас)
+        // фото-кружки только у значимых (12+ Википедий), не у всех подряд
+        const feats = map.queryRenderedFeatures({ layers: LAYER_IDS }).filter((f) => f.properties.thumb_url && f.properties.sitelinks_count >= 12);
+        feats.sort((a, b) => b.properties.sitelinks_count - a.properties.sitelinks_count).slice(0, 80)
           .forEach((f) => loadPhoto(f.properties.qid, f.properties.thumb_url, (CATEGORIES[f.properties.category] || {}).color || '#9aa0a6'));
       });
 
       document.getElementById('about-body').innerHTML =
-        `Обновлено: <b>${meta.built || '—'}</b> · объектов: ${(meta.count || 0).toLocaleString('ru')}<br>` +
+        `Версия: <b>${PAGE_VERSION}</b> · данные: <b>${meta.built || '—'}</b> · объектов: ${(meta.count || 0).toLocaleString('ru')}<br>` +
         `Источники: Wikidata (CC0), тексты — Wikipedia (CC BY-SA).<br>Карта: © OpenFreeMap · © OpenStreetMap.<br>` +
         `<a href="https://github.com/misht-world/my_map-poi" target="_blank" rel="noopener">Исходный код</a>`;
       document.getElementById('about-toggle').addEventListener('click', (e) => { e.preventDefault(); const b = document.getElementById('about-body'); b.hidden = !b.hidden; });
