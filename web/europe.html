@@ -55,6 +55,7 @@
         <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
       </label>
       <span id="count">загрузка…</span>
+      <div id="zoom" style="font-size:11px;color:#b3541e;font-weight:600"></div>
       <div id="legend"></div>
       <div id="about"><a href="#" id="about-toggle">ⓘ О данных и правах</a><div id="about-body" hidden></div></div>
     </div>
@@ -120,16 +121,24 @@
       map.addImage('poi-other', catIcon('#9aa0a6', 'other'), { pixelRatio: ratio });
 
       map.addSource('poi', { type: 'vector', url: 'pmtiles://' + PMTILES });
-      map.addLayer({
-        id: 'poi', type: 'symbol', source: 'poi', 'source-layer': 'poi',
+      // Три яруса по значимости, чтобы точки появлялись равномерно, а не скачком на одном
+      // зуме: важные раскрываются полностью раньше, остальные дозаполняются по мере зума
+      // (до порога — коллизионное прореживание, поэтому в разреженных местах видно всё и так).
+      const TIERS = [
+        { id: 'poi-lo',  rule: ['<', ['get', 'sitelinks_count'], 2], overlapFrom: 10 },
+        { id: 'poi-mid', rule: ['all', ['>=', ['get', 'sitelinks_count'], 2], ['<', ['get', 'sitelinks_count'], 6]], overlapFrom: 8 },
+        { id: 'poi-hi',  rule: ['>=', ['get', 'sitelinks_count'], 6], overlapFrom: 6 },
+      ];
+      const LAYER_IDS = TIERS.map((t) => t.id);
+      for (const t of TIERS) map.addLayer({
+        id: t.id, type: 'symbol', source: 'poi', 'source-layer': 'poi',
         layout: {
           'icon-image': ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]],
           // размер по числу Википедий (значимость); просмотры добавит enrich позже.
           'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.5, 5, 0.7, 20, 0.95, 60, 1.25, 150, 1.55],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
           'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 1, 10, 0],
-          // показывать все точки с z8 (страна/регион/город — плотность как в пилоте); ниже — коллизии для читаемости
-          'icon-allow-overlap': ['step', ['zoom'], false, 8, true],
+          'icon-allow-overlap': ['step', ['zoom'], false, t.overlapFrom, true],
         },
       });
 
@@ -149,15 +158,19 @@
       const religiousRule = ['any', ['!', ['==', ['get', 'category'], 'religion']], ['>=', ['get', 'score'], RELIGIOUS_MIN]];
       function applyFilters() {
         const cutoff = SLIDER_MAX - Number(densityInput.value);
-        map.setFilter('poi', ['all', religiousRule, ['>=', ['get', 'score'], cutoff],
+        for (const t of TIERS) map.setFilter(t.id, ['all', t.rule, religiousRule, ['>=', ['get', 'score'], cutoff],
           ['!', ['in', ['get', 'category'], ['literal', [...hidden]]]]]);
       }
       densityInput.addEventListener('input', applyFilters);
       applyFilters();
       // счётчик — сколько сейчас в кадре (векторные тайлы не дают полный список).
       const meta = await fetch('europe-meta.json').then((r) => r.json()).catch(() => ({ count: 514747 }));
-      const updateCount = () => { const n = map.queryRenderedFeatures({ layers: ['poi'] }).length; countEl.textContent = '≈ ' + n.toLocaleString('ru') + ' в кадре · всего ' + (meta.count || 0).toLocaleString('ru'); };
+      const updateCount = () => { const n = map.queryRenderedFeatures({ layers: LAYER_IDS }).length; countEl.textContent = '≈ ' + n.toLocaleString('ru') + ' в кадре · всего ' + (meta.count || 0).toLocaleString('ru'); };
       map.on('idle', updateCount);
+      // отладочный индикатор зума (живой, обновляется при движении карты)
+      const zoomEl = document.getElementById('zoom');
+      const updateZoom = () => { zoomEl.textContent = 'zoom ' + map.getZoom().toFixed(2); };
+      map.on('move', updateZoom); updateZoom();
 
       // Фото-маркеры: для видимых объектов с thumb_url грузим круглое фото + кольцо (лениво, с запасом).
       const photoTried = new Set();
@@ -174,7 +187,7 @@
         img.src = url;
       }
       map.on('idle', () => {
-        const feats = map.queryRenderedFeatures({ layers: ['poi'] }).filter((f) => f.properties.thumb_url);
+        const feats = map.queryRenderedFeatures({ layers: LAYER_IDS }).filter((f) => f.properties.thumb_url);
         feats.sort((a, b) => b.properties.sitelinks_count - a.properties.sitelinks_count).slice(0, 120)
           .forEach((f) => loadPhoto(f.properties.qid, f.properties.thumb_url, (CATEGORIES[f.properties.category] || {}).color || '#9aa0a6'));
       });
@@ -185,15 +198,17 @@
         `<a href="https://github.com/misht-world/my_map-poi" target="_blank" rel="noopener">Исходный код</a>`;
       document.getElementById('about-toggle').addEventListener('click', (e) => { e.preventDefault(); const b = document.getElementById('about-body'); b.hidden = !b.hidden; });
 
-      map.on('click', 'poi', (e) => {
-        const p = e.features[0].properties;
-        const [lon, lat] = e.features[0].geometry.coordinates;
-        const html = cardHtml(p, lat, lon);
-        if (isMobile()) { document.getElementById('sheet-body').innerHTML = html; document.getElementById('sheet').classList.add('open'); }
-        else new maplibregl.Popup({ maxWidth: '300px' }).setLngLat([lon, lat]).setHTML(html).addTo(map);
-      });
-      map.on('mouseenter', 'poi', () => (map.getCanvas().style.cursor = 'pointer'));
-      map.on('mouseleave', 'poi', () => (map.getCanvas().style.cursor = ''));
+      for (const lid of LAYER_IDS) {
+        map.on('click', lid, (e) => {
+          const p = e.features[0].properties;
+          const [lon, lat] = e.features[0].geometry.coordinates;
+          const html = cardHtml(p, lat, lon);
+          if (isMobile()) { document.getElementById('sheet-body').innerHTML = html; document.getElementById('sheet').classList.add('open'); }
+          else new maplibregl.Popup({ maxWidth: '300px' }).setLngLat([lon, lat]).setHTML(html).addTo(map);
+        });
+        map.on('mouseenter', lid, () => (map.getCanvas().style.cursor = 'pointer'));
+        map.on('mouseleave', lid, () => (map.getCanvas().style.cursor = ''));
+      }
     });
     document.getElementById('sheet-close').addEventListener('click', () => document.getElementById('sheet').classList.remove('open'));
 
