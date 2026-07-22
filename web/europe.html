@@ -123,12 +123,12 @@
       map.addLayer({
         id: 'poi', type: 'symbol', source: 'poi', 'source-layer': 'poi',
         layout: {
-          'icon-image': ['concat', 'poi-', ['get', 'category']],
+          'icon-image': ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]],
           // размер по числу Википедий (значимость); просмотры добавит enrich позже.
-          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.55, 5, 0.78, 20, 1.05, 60, 1.35, 150, 1.7],
+          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.4, 5, 0.55, 20, 0.85, 60, 1.15, 150, 1.5],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
-          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 6, 10, 3, 14, 1, 16, 0],
-          'icon-allow-overlap': ['step', ['zoom'], false, 16, true],
+          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 4, 9, 2, 12, 0],
+          'icon-allow-overlap': ['step', ['zoom'], false, 11, true],
         },
       });
 
@@ -158,6 +158,26 @@
       const updateCount = () => { const n = map.queryRenderedFeatures({ layers: ['poi'] }).length; countEl.textContent = '≈ ' + n.toLocaleString('ru') + ' в кадре · всего ' + (meta.count || 0).toLocaleString('ru'); };
       map.on('idle', updateCount);
 
+      // Фото-маркеры: для видимых объектов с thumb_url грузим круглое фото + кольцо (лениво, с запасом).
+      const photoTried = new Set();
+      function loadPhoto(qid, url, color) {
+        if (photoTried.has(qid)) return; photoTried.add(qid);
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        img.onload = () => { try {
+          const S = 56 * ratio, r = S / 2 - 2.5 * ratio; const cv = document.createElement('canvas'); cv.width = cv.height = S; const ctx = cv.getContext('2d');
+          ctx.save(); ctx.beginPath(); ctx.arc(S / 2, S / 2, r, 0, 2 * Math.PI); ctx.clip();
+          const sc = Math.max(S / img.width, S / img.height); ctx.drawImage(img, (S - img.width * sc) / 2, (S - img.height * sc) / 2, img.width * sc, img.height * sc); ctx.restore();
+          ctx.beginPath(); ctx.arc(S / 2, S / 2, r, 0, 2 * Math.PI); ctx.lineWidth = 3 * ratio; ctx.strokeStyle = color; ctx.stroke();
+          if (!map.hasImage('photo-' + qid)) map.addImage('photo-' + qid, ctx.getImageData(0, 0, S, S), { pixelRatio: ratio });
+        } catch (e) {} };
+        img.src = url;
+      }
+      map.on('idle', () => {
+        const feats = map.queryRenderedFeatures({ layers: ['poi'] }).filter((f) => f.properties.thumb_url);
+        feats.sort((a, b) => b.properties.sitelinks_count - a.properties.sitelinks_count).slice(0, 120)
+          .forEach((f) => loadPhoto(f.properties.qid, f.properties.thumb_url, (CATEGORIES[f.properties.category] || {}).color || '#9aa0a6'));
+      });
+
       document.getElementById('about-body').innerHTML =
         `Обновлено: <b>${meta.built || '—'}</b> · объектов: ${(meta.count || 0).toLocaleString('ru')}<br>` +
         `Источники: Wikidata (CC0), тексты — Wikipedia (CC BY-SA).<br>Карта: © OpenFreeMap · © OpenStreetMap.<br>` +
@@ -186,6 +206,7 @@
       const cat = CATEGORIES[p.category];
       if (cat) html += `<div class="poi-cat"><i style="background:${cat.color}"></i>${esc(cat.label_ru)}</div>`;
       if (p.description) html += `<div class="poi-desc">${esc(p.description)}</div>`;
+      if (p.summary) html += `<div class="poi-summary" style="max-height:14em;overflow-y:auto;margin:6px 0">${esc(p.summary)}</div>`;
       html += '<div class="poi-links">';
       if (p.wiki_url) { const wl = (String(p.wiki_url).match(/https:\/\/([a-z-]+)\.wikipedia/) || [])[1]; const hint = { ru: ' (рус.)', it: ' (ит.)', de: ' (нем.)', en: ' (англ.)' }[wl] ?? (wl ? ` (${wl})` : ''); html += `<a href="${esc(p.wiki_url)}" target="_blank" rel="noopener">Wikipedia${hint} →</a>`; }
       html += `<a href="${mapsUrl}" target="_blank" rel="noopener">Google Maps →</a></div></div>`;

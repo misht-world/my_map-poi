@@ -16,6 +16,7 @@
     "data:classify": "node scripts/03-classify.mjs",
     "data:translate": "python scripts/translate_ru.py",
     "data:normalize": "node scripts/04-normalize.mjs",
-    "data:enrich-eu": "node scripts/eu-03-enrich.mjs --min 5"
+    "data:enrich-eu": "node scripts/eu-03-enrich.mjs --min 5",
+    "data:normalize-eu": "node scripts/eu-02-normalize.mjs"
   }
 }

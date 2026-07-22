@@ -7,7 +7,8 @@
 //
 // Запуск: node scripts/eu-02-normalize.mjs [--region europe]
 
-import { createReadStream, createWriteStream, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createReadStream, createWriteStream, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { createGzip } from 'node:zlib';
 import { createInterface } from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -30,6 +31,15 @@ async function main() {
   const outFile = resolve(ROOT, `data/eu/${name}.geojsonseq`);
   const out = createWriteStream(outFile);
   const seen = new Set();
+
+  // Обогащённые поля (eu-03-enrich, срез) — накладываются поверх парса, если есть.
+  const enr = new Map();
+  const enrFile = resolve(ROOT, `data/eu/${name}.enriched.jsonl`);
+  if (existsSync(enrFile)) {
+    const erl = createInterface({ input: createReadStream(enrFile), crlfDelay: Infinity });
+    for await (const line of erl) { if (!line) continue; try { const e = JSON.parse(line); enr.set(e.qid, e); } catch {} }
+    console.log(`Обогащённых наложено: ${enr.size}`);
+  }
   const catCount = {};
   let n = 0;
 
@@ -42,8 +52,10 @@ async function main() {
     seen.add(r.qid);
 
     const hasImage = Boolean(r.image);
+    // score — по числу Википедий (единая шкала 0–6 для всех 514k); просмотры идут в размер, не в score.
     const s = Number(score({ sitelinks_count: r.sitelinks_count, pageviews_90d: 0, has_image: hasImage }).toFixed(3));
     const nameRu = r.label_ru && r.label_ru !== r.label ? r.label_ru : null;
+    const e = enr.get(r.qid); // обогащение (просмотры/summary/фото), если есть
 
     const feature = {
       type: 'Feature',
@@ -55,10 +67,18 @@ async function main() {
         category: r.category,
         score: s,
         sitelinks_count: r.sitelinks_count,
+        pageviews_90d: e?.pageviews_90d ?? 0,
         has_image: hasImage,
         description: r.description_ru || null,
+        summary: e?.summary || null,
         website: r.website || null,
         wiki_url: wikiUrl(r),
+        image_url: e?.image_url || null,
+        thumb_url: e?.thumb_url || null,
+        img_author: e?.img_author || null,
+        img_license: e?.img_license || null,
+        img_license_url: e?.img_license_url || null,
+        img_source: e?.img_source || null,
       },
     };
     out.write(JSON.stringify(feature) + '\n');
@@ -66,6 +86,12 @@ async function main() {
     n++;
   }
   out.end();
+  await new Promise((res) => out.on('finish', res));
+
+  // gzip для заливки в релиз europe-src (вход тайлинга) — одной командой.
+  await new Promise((res, rej) => {
+    createReadStream(outFile).pipe(createGzip()).pipe(createWriteStream(outFile + '.gz')).on('finish', res).on('error', rej);
+  });
 
   mkdirSync(resolve(ROOT, 'data/eu'), { recursive: true });
   const meta = {
