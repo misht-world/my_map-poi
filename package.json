@@ -17,6 +17,7 @@
     "data:translate": "python scripts/translate_ru.py",
     "data:normalize": "node scripts/04-normalize.mjs",
     "data:enrich-eu": "node scripts/eu-03-enrich.mjs --min 5",
+    "data:enrich-eu-full": "node scripts/eu-03-enrich.mjs --min 2",
     "data:translate-eu": "python scripts/eu-04-translate.py",
     "data:normalize-eu": "node scripts/eu-02-normalize.mjs"
   }
