@@ -40,6 +40,13 @@ async function main() {
     for await (const line of erl) { if (!line) continue; try { const e = JSON.parse(line); enr.set(e.qid, e); } catch {} }
     console.log(`Обогащённых наложено: ${enr.size}`);
   }
+  // Переводы summary (eu-04-translate.py) — подменяют иноязычный текст, нативный ru не трогают.
+  let trSum = {};
+  const trFile = resolve(ROOT, `data/eu/${name}.tr-summary.json`);
+  if (existsSync(trFile)) {
+    trSum = JSON.parse(readFileSync(trFile, 'utf8'));
+    console.log(`Переводов summary наложено: ${Object.values(trSum).filter(Boolean).length}`);
+  }
   const catCount = {};
   let n = 0;
 
@@ -70,7 +77,8 @@ async function main() {
         pageviews_90d: e?.pageviews_90d ?? 0,
         has_image: hasImage,
         description: r.description_ru || null,
-        summary: e?.summary || null,
+        // приоритет: нативный ru → машинный перевод → текст на языке источника
+        summary: (e?.summary_native_ru ? e.summary : null) || trSum[r.qid] || e?.summary || null,
         website: r.website || null,
         wiki_url: wikiUrl(r),
         image_url: e?.image_url || null,

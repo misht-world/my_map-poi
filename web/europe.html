@@ -27,6 +27,9 @@
     #about-body a { color: #1a6; }
     .maplibregl-popup-content { max-width: 300px; padding: 12px 14px; }
     .card { font-size: 13px; line-height: 1.45; }
+    .poi-photo { width: 100%; border-radius: 6px; display: block; }
+    .poi-attr { font-size: 10px; color: #666; margin: 3px 0 8px; }
+    .poi-attr a { color: #666; }
     .poi-site { font-size: 12px; margin: 0 0 5px; }
     .poi-site a { color: #1a6; text-decoration: none; font-weight: 600; }
     .poi-name { font-weight: 700; font-size: 15px; }
@@ -125,9 +128,9 @@
       // зуме: важные раскрываются полностью раньше, остальные дозаполняются по мере зума
       // (до порога — коллизионное прореживание, поэтому в разреженных местах видно всё и так).
       const TIERS = [
-        { id: 'poi-lo',  rule: ['<', ['get', 'sitelinks_count'], 2], overlapFrom: 10 },
-        { id: 'poi-mid', rule: ['all', ['>=', ['get', 'sitelinks_count'], 2], ['<', ['get', 'sitelinks_count'], 6]], overlapFrom: 8 },
-        { id: 'poi-hi',  rule: ['>=', ['get', 'sitelinks_count'], 6], overlapFrom: 6 },
+        { id: 'poi-lo',  rule: ['<', ['get', 'sitelinks_count'], 2], overlapFrom: 12 },
+        { id: 'poi-mid', rule: ['all', ['>=', ['get', 'sitelinks_count'], 2], ['<', ['get', 'sitelinks_count'], 6]], overlapFrom: 10 },
+        { id: 'poi-hi',  rule: ['>=', ['get', 'sitelinks_count'], 6], overlapFrom: 9 },
       ];
       const LAYER_IDS = TIERS.map((t) => t.id);
       for (const t of TIERS) map.addLayer({
@@ -135,9 +138,9 @@
         layout: {
           'icon-image': ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]],
           // размер по числу Википедий (значимость); просмотры добавит enrich позже.
-          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.5, 5, 0.7, 20, 0.95, 60, 1.25, 150, 1.55],
+          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.62, 5, 0.8, 20, 1.0, 60, 1.3, 150, 1.6],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
-          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 1, 10, 0],
+          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 4, 7, 2, 10, 1, 12, 0],
           'icon-allow-overlap': ['step', ['zoom'], false, t.overlapFrom, true],
         },
       });
@@ -156,8 +159,11 @@
       const countEl = document.getElementById('count');
       const SLIDER_MAX = Number(densityInput.max);
       const religiousRule = ['any', ['!', ['==', ['get', 'category'], 'religion']], ['>=', ['get', 'score'], RELIGIOUS_MIN]];
+      // Шкала слайдера → score-порог. Максимум порога 4.5 (а не 6): score=ln(sitelinks+1)+0.5×фото,
+      // выше 4.5 (≈55+ Википедий) почти никого нет — раньше минимум слайдера давал пустую карту.
+      const MAX_CUTOFF = 4.5;
       function applyFilters() {
-        const cutoff = SLIDER_MAX - Number(densityInput.value);
+        const cutoff = MAX_CUTOFF * (1 - Number(densityInput.value) / SLIDER_MAX);
         for (const t of TIERS) map.setFilter(t.id, ['all', t.rule, religiousRule, ['>=', ['get', 'score'], cutoff],
           ['!', ['in', ['get', 'category'], ['literal', [...hidden]]]]]);
       }
@@ -216,6 +222,13 @@
       const esc = (s) => (s == null ? '' : String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])));
       const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
       let html = '<div class="card">';
+      if (p.image_url) {
+        html += `<img class="poi-photo" src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" />`;
+        const lic = p.img_license_url
+          ? `<a href="${esc(p.img_license_url)}" target="_blank" rel="noopener">${esc(p.img_license)}</a>`
+          : esc(p.img_license);
+        html += `<div class="poi-attr">© ${esc(p.img_author)} · ${lic} · <a href="${esc(p.img_source)}" target="_blank" rel="noopener">Commons</a></div>`;
+      }
       if (p.website) { let host = p.website; try { host = new URL(p.website).hostname.replace(/^www\./, ''); } catch {} html += `<div class="poi-site">🌐 <a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(host)}</a></div>`; }
       html += `<div class="poi-name">${esc(p.name) || p.qid}</div>`;
       if (p.name_ru) html += `<div class="poi-name-ru">${esc(p.name_ru)}</div>`;
