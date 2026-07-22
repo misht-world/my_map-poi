@@ -125,10 +125,11 @@
         layout: {
           'icon-image': ['coalesce', ['image', ['concat', 'photo-', ['get', 'qid']]], ['image', ['concat', 'poi-', ['get', 'category']]]],
           // размер по числу Википедий (значимость); просмотры добавит enrich позже.
-          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.4, 5, 0.55, 20, 0.85, 60, 1.15, 150, 1.5],
+          'icon-size': ['interpolate', ['linear'], ['get', 'sitelinks_count'], 1, 0.5, 5, 0.7, 20, 0.95, 60, 1.25, 150, 1.55],
           'symbol-sort-key': ['-', 0, ['get', 'score']],
-          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 4, 9, 2, 12, 0],
-          'icon-allow-overlap': ['step', ['zoom'], false, 11, true],
+          'icon-padding': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 1, 10, 0],
+          // показывать все точки с z8 (страна/регион/город — плотность как в пилоте); ниже — коллизии для читаемости
+          'icon-allow-overlap': ['step', ['zoom'], false, 8, true],
         },
       });
 

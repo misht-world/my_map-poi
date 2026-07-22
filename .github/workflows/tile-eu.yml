@@ -34,9 +34,9 @@ jobs:
       - name: Tile → PMTiles
         run: |
           tippecanoe -o europe.pmtiles -Z2 -z14 -l poi \
-            --drop-densest-as-needed --extend-zooms-if-still-dropping \
+            -r1 --drop-densest-as-needed --extend-zooms-if-still-dropping \
             --order-descending-by=score \
-            -M 1200000 --no-feature-limit --force europe.geojsonseq
+            -M 2500000 --no-feature-limit --force europe.geojsonseq
           ls -lh europe.pmtiles
 
       - name: Publish PMTiles to release
