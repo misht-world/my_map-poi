@@ -41,12 +41,14 @@ async function main() {
     console.log(`Обогащённых наложено: ${enr.size}`);
   }
   // Переводы summary (eu-04-translate.py) — подменяют иноязычный текст, нативный ru не трогают.
+  // Кэшей может быть несколько (шарды tr-summary.s1of3.json...) — сливаем все.
   let trSum = {};
-  const trFile = resolve(ROOT, `data/eu/${name}.tr-summary.json`);
-  if (existsSync(trFile)) {
-    trSum = JSON.parse(readFileSync(trFile, 'utf8'));
-    console.log(`Переводов summary наложено: ${Object.values(trSum).filter(Boolean).length}`);
+  const { readdirSync } = await import('node:fs');
+  for (const f of readdirSync(resolve(ROOT, 'data/eu')).filter((f) => f.startsWith(`${name}.tr-summary`) && f.endsWith('.json')).sort()) {
+    Object.assign(trSum, JSON.parse(readFileSync(resolve(ROOT, 'data/eu', f), 'utf8')));
   }
+  const trOk = Object.values(trSum).filter(Boolean).length;
+  if (trOk) console.log(`Переводов summary наложено: ${trOk}`);
   const catCount = {};
   let n = 0;
 
