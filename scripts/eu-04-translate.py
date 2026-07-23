@@ -87,9 +87,19 @@ def main():
     log("loading argostranslate (models load lazily per language)...")
     import argostranslate.translate as tr
 
+    # Очень длинные summary режем по границе предложения: быстрее, и на гигантских
+    # текстах переводчик может падать нативно (без traceback), убивая процесс.
+    MAX_LEN = 2000
+
+    def trim(text):
+        if len(text) <= MAX_LEN:
+            return text
+        cut = text.rfind(". ", 0, MAX_LEN)
+        return text[:cut + 1] if cut > 200 else text[:MAX_LEN]
+
     def mt(text, lang):
         try:
-            out = tr.translate(text, lang, "ru")
+            out = tr.translate(trim(text), lang, "ru")
             if out and CYR.search(out):
                 return out
         except Exception:
