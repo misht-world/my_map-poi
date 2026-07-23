@@ -26,7 +26,7 @@ null = уже пробовали, модели нет; при перезапус
 import glob, json, os, re, sys, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAVE_EVERY = 200
+SAVE_EVERY = 100
 CYR = re.compile(r"[А-Яа-яЁё]")
 
 
