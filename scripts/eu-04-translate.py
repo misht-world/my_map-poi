@@ -39,9 +39,14 @@ def main():
     region = argv[argv.index("--region") + 1] if "--region" in argv else "europe"
     limit = int(argv[argv.index("--limit") + 1]) if "--limit" in argv else None
     shard_k, shard_n = 0, 1
+    # --shard K/N либо просто позиционное K/N (npm на Windows глотает --shard)
+    pos = [a for a in argv if re.fullmatch(r"\d+/\d+", a)]
     if "--shard" in argv:
         shard_k, shard_n = (int(x) for x in argv[argv.index("--shard") + 1].split("/"))
-        assert 1 <= shard_k <= shard_n, "--shard K/N: 1 <= K <= N"
+    elif pos:
+        shard_k, shard_n = (int(x) for x in pos[0].split("/"))
+    if shard_n > 1:
+        assert 1 <= shard_k <= shard_n, "shard K/N: 1 <= K <= N"
 
     src = os.path.join(ROOT, f"data/eu/{region}.enriched.jsonl")
     # done = все кэши (свой + чужих шардов + старый общий): дважды не переводим.
