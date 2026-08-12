@@ -98,7 +98,9 @@ export function makeExtractor({ bbox, classToCat, blacklist, catRank }) {
       lat, lon,
       sitelinks_count: slCount,
       category,
-      label: firstLabel(labels),
+      // Главный заголовок — на языке основной статьи объекта (родное название),
+      // иначе fallback по приоритету. Русский всегда доступен отдельно в label_ru.
+      label: labels[wiki?.lang]?.value || firstLabel(labels),
       label_ru: labels.ru?.value || null,
       description_ru: descriptions.ru?.value || null,
       image: p18,

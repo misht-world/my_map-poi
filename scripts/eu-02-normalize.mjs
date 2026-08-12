@@ -66,7 +66,12 @@ async function main() {
     const hasImage = Boolean(r.image);
     // score — по числу Википедий (единая шкала 0–6 для всех 514k); просмотры идут в размер, не в score.
     const s = Number(score({ sitelinks_count: r.sitelinks_count, pageviews_90d: 0, has_image: hasImage }).toFixed(3));
-    const nameRu = r.label_ru && r.label_ru !== r.label ? r.label_ru : null;
+    // Для русскоязычных объектов (есть ru-статья или основная вики русская) главный заголовок —
+    // официальный русский label, а не иноязычный, который парсер выбрал по приоритету it/de/en.
+    // Иностранные объекты не трогаем: у них оригинал в name + русский серым в name_ru.
+    const russianPrimary = Boolean(r.ru_title) || r.wiki_lang === 'ru';
+    const name = russianPrimary && r.label_ru ? r.label_ru : (r.label || r.qid);
+    const nameRu = r.label_ru && r.label_ru !== name ? r.label_ru : null;
     const e = enr.get(r.qid); // обогащение (просмотры/summary/фото), если есть
 
     const feature = {
@@ -74,7 +79,7 @@ async function main() {
       geometry: { type: 'Point', coordinates: [r.lon, r.lat] },
       properties: {
         qid: r.qid,
-        name: r.label || r.qid,
+        name: name,
         name_ru: nameRu,
         category: r.category,
         score: s,
