@@ -82,8 +82,9 @@ async function main() {
         pageviews_90d: e?.pageviews_90d ?? 0,
         has_image: hasImage,
         description: r.description_ru || null,
-        // приоритет: нативный ru → машинный перевод → текст на языке источника
-        summary: (e?.summary_native_ru ? e.summary : null) || trSum[r.qid] || e?.summary || null,
+        // только русский: нативный ru → машинный перевод. Иностранный оригинал НЕ показываем
+        // (политика CLAUDE.md «лучше пусто, чем на чужом языке») — остаётся ссылка на статью.
+        summary: (e?.summary_native_ru ? e.summary : null) || trSum[r.qid] || null,
         website: r.website || null,
         wiki_url: wikiUrl(r),
         image_url: e?.image_url || null,

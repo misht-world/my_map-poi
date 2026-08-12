@@ -55,9 +55,9 @@
     <div id="hud-head"><b>my_map-poi</b><button id="hud-toggle" title="Свернуть">▾</button></div>
     <div id="hud-body">
       <div id="hud-sub">достопримечательности Европы</div>
-      <label style="display:block;margin:6px 0 2px">Плотность точек
+      <label style="display:block;margin:6px 0 2px">Значимость объектов
         <input type="range" id="density" min="0" max="6" step="0.25" value="6" style="width:100%" />
-        <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>меньше</span><span>больше</span></span>
+        <span style="display:flex;justify-content:space-between;font-size:10px;color:#888"><span>только важные</span><span>все</span></span>
       </label>
       <span id="count">загрузка…</span>
       <div id="zoom" style="font-size:11px;color:#b3541e;font-weight:600"></div>
@@ -72,7 +72,7 @@
   <script>
   (async function () {
     // Версия страницы — поднимать вручную при заметных изменениях интерфейса.
-    const PAGE_VERSION = 'v0.9 (2026-07-22)';
+    const PAGE_VERSION = 'v1.0 (2026-08-12)';
     const poiTypes = await fetch('config/poi-types.json').then((r) => r.json()).catch(() => ({ categories: {} }));
     const CATEGORIES = poiTypes.categories || {};
     const RELIGIOUS_MIN = 2;
