@@ -87,6 +87,10 @@ def main():
     log("loading argostranslate (models load lazily per language)...")
     import argostranslate.translate as tr
 
+    # Коды вики → коды моделей argos. Норвежский в Wikidata — 'no' (это Bokmål,
+    # модель 'nb'); арабские варианты сводим к 'ar'.
+    LANG_ALIAS = {"no": "nb", "nb": "nb", "arz": "ar", "ary": "ar", "als": "sq"}
+
     # Очень длинные summary режем по границе предложения: быстрее, и на гигантских
     # текстах переводчик может падать нативно (без traceback), убивая процесс.
     MAX_LEN = 2000
@@ -98,6 +102,7 @@ def main():
         return text[:cut + 1] if cut > 200 else text[:MAX_LEN]
 
     def mt(text, lang):
+        lang = LANG_ALIAS.get(lang, lang)
         try:
             out = tr.translate(trim(text), lang, "ru")
             if out and CYR.search(out):

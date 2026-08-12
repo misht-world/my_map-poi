@@ -45,7 +45,10 @@ async function main() {
   let trSum = {};
   const { readdirSync } = await import('node:fs');
   for (const f of readdirSync(resolve(ROOT, 'data/eu')).filter((f) => f.startsWith(`${name}.tr-summary`) && f.endsWith('.json')).sort()) {
-    Object.assign(trSum, JSON.parse(readFileSync(resolve(ROOT, 'data/eu', f), 'utf8')));
+    const d = JSON.parse(readFileSync(resolve(ROOT, 'data/eu', f), 'utf8'));
+    // реальный перевод не затираем пустым из другого шард-файла (после решардинга qid мог
+    // остаться null в старом файле и получить текст в новом — приоритет у текста)
+    for (const [q, v] of Object.entries(d)) if (v || !(q in trSum)) trSum[q] = v;
   }
   const trOk = Object.values(trSum).filter(Boolean).length;
   if (trOk) console.log(`Переводов summary наложено: ${trOk}`);
