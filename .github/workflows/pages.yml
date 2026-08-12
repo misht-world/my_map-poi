@@ -42,6 +42,10 @@ jobs:
           cp data/normalized/*.geojson _site/data/normalized/
           # PMTiles Европы кладём рядом (same-origin для веба, без CORS). Если релиза ещё нет — пропускаем.
           gh release download europe-tiles --repo "$GITHUB_REPOSITORY" -p 'europe.pmtiles' -D _site 2>/dev/null || echo "europe.pmtiles пока нет — пропуск"
+          # europe-meta.json из релиза europe-src (свежая дата с данными); иначе — закоммиченный.
+          if gh release download europe-src --repo "$GITHUB_REPOSITORY" -p 'europe.meta.json' -D _site 2>/dev/null; then
+            mv _site/europe.meta.json _site/europe-meta.json
+          fi
           ls -lh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
