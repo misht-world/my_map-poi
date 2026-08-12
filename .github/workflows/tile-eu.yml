@@ -1,18 +1,18 @@
 name: Tile Europe (tippecanoe → PMTiles)
 
 # Ручной запуск. Берёт вход (europe.geojsonseq.gz из релиза europe-src), тайлит через
-# tippecanoe в PMTiles и кладёт в релиз europe-tiles. Веб грузит PMTiles range-запросами.
-# Тяжёлый пайплайн (дамп/парс/enrich) идёт на ПК — CI только тайлит (tippecanoe тривиален на ubuntu).
+# tippecanoe в PMTiles, кладёт в релиз europe-tiles И СРАЗУ деплоит Pages вторым job'ом
+# (needs: tile) — так деплой всегда идёт ПОСЛЕ готового файла, без гонки с pages.yml.
+# Тяжёлый пайплайн (дамп/парс/enrich) идёт на ПК — CI только тайлит (tippecanoe тривиален).
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   tile:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Install build deps
         run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
@@ -46,5 +46,38 @@ jobs:
           gh release view europe-tiles --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
             || gh release create europe-tiles --repo "$GITHUB_REPOSITORY" --title "Europe PMTiles" --notes "Векторные тайлы POI Европы (PMTiles). Обновляется workflow tile-eu.yml."
           gh release upload europe-tiles europe.pmtiles --repo "$GITHUB_REPOSITORY" --clobber
-          # авто-редеплой Pages, чтобы новый PMTiles попал на сайт
-          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" || true
+
+  # Деплой Pages — отдельный job, стартует только после успешного tile (needs: tile),
+  # то есть когда новый PMTiles уже в релизе. Гонки с pages.yml нет: тот же concurrency-group.
+  deploy:
+    needs: tile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p _site/config _site/data/normalized
+          cp web/*.html web/*-meta.json _site/ 2>/dev/null || cp web/*.html _site/
+          cp config/scoring.json config/poi-types.json _site/config/
+          cp data/normalized/*.geojson _site/data/normalized/
+          # PMTiles из релиза europe-tiles (обновлён предыдущим job'ом) — same-origin для веба.
+          gh release download europe-tiles --repo "$GITHUB_REPOSITORY" -p 'europe.pmtiles' -D _site
+          ls -lh _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
