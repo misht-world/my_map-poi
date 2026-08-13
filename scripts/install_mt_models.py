@@ -7,9 +7,11 @@
 import sys, time
 import argostranslate.package as pkg
 
-# исходные языки статей, встречающиеся в данных (все пивотятся через en)
+# исходные языки статей, встречающиеся в данных (все пивотятся через en).
+# no (норвежский в Wikidata) — это Bokmål, модель 'nb'; алиас в eu-04-translate.
 SRC = ["it", "de", "fr", "es", "pt", "nl", "pl", "cs", "ro", "ja", "sv", "uk",
-       "sh", "et", "ca", "fi", "da", "hu", "el", "tr", "sl", "sk"]
+       "sh", "et", "ca", "fi", "da", "hu", "el", "tr", "sl", "sk",
+       "nb", "lt", "lv", "eu", "sq", "ar", "gl", "fa", "he", "ga", "az", "vi", "id"]
 
 
 def retry(fn, n=4):

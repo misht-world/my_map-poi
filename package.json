@@ -20,6 +20,7 @@
     "data:enrich-eu-full": "node scripts/eu-03-enrich.mjs --min 2",
     "data:translate-eu": "python scripts/eu-04-translate.py",
     "data:normalize-eu": "node scripts/eu-02-normalize.mjs",
+    "data:refresh-eu": "node scripts/eu-05-refresh.mjs --region europe",
     "data:publish-eu": "gh release upload europe-src data/eu/europe.geojsonseq.gz data/eu/europe.meta.json --repo misht-world/my_map-poi --clobber"
   }
 }

@@ -1,0 +1,95 @@
+name: Refresh Europe data (quarterly, no dump)
+
+# Квартальный авто-рефреш БЕЗ 144ГБ дампа: текущий набор объектов через Wikidata SPARQL
+# (eu-05-refresh) → enrich только новых → перевод только новых → normalize → publish →
+# запуск tile-eu (тайлинг + деплой). Дорогие кэши (enrich/translate) персистятся между
+# запусками в релизе europe-caches; набор объектов и sitelinks (score) освежаются каждый раз.
+#
+# Первый прогон валидируется вручную (workflow_dispatch). Тяжёлый холодный дамп больше не нужен.
+
+on:
+  schedule:
+    - cron: '0 3 1 1,4,7,10 *'   # 03:00 UTC, 1-е число января/апреля/июля/октября
+  workflow_dispatch:
+    inputs:
+      resume:
+        description: 'Продолжить прерванный квартал (не сбрасывать SPARQL-набор и sitelinks)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-eu
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+
+      - name: Install argostranslate + models
+        run: |
+          pip install --quiet argostranslate
+          python scripts/install_mt_models.py
+
+      - name: Restore caches from europe-caches release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data/eu/refresh
+          if gh release download europe-caches --repo "$GITHUB_REPOSITORY" -p 'eu-caches.tar.gz' -O caches.tar.gz 2>/dev/null; then
+            tar -xzf caches.tar.gz
+            echo "кэши восстановлены:"; ls -lh data/eu/*.json 2>/dev/null || true
+          else
+            echo "europe-caches ещё нет — первый прогон, кэши будут созданы"
+          fi
+
+      - name: Fresh quarter — сбросить SPARQL-набор и sitelinks (кроме resume)
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.resume != 'true' }}
+        run: |
+          rm -f data/eu/refresh/entities.json
+          rm -rf data/eu/refresh/cells-*
+          echo "SPARQL-набор и sitelinks будут пересчитаны заново (свежий score)"
+
+      - name: 1) Refresh object set via SPARQL
+        run: node scripts/eu-05-refresh.mjs --region europe --conc 4
+
+      - name: 2) Enrich new objects (pageviews / summary / photos)
+        run: node scripts/eu-03-enrich.mjs --min 2
+
+      - name: 3) Translate new summaries (offline argos)
+        run: python scripts/eu-04-translate.py
+
+      - name: 4) Normalize → GeoJSONSeq + meta
+        run: node scripts/eu-02-normalize.mjs
+
+      - name: Persist caches back to europe-caches release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tar -czf eu-caches.tar.gz \
+            data/eu/europe.enr-pageviews.json data/eu/europe.enr-summary.json data/eu/europe.enr-photos.json \
+            data/eu/europe.tr-summary*.json \
+            data/eu/refresh/entities.json data/eu/refresh/cells-* 2>/dev/null || \
+          tar -czf eu-caches.tar.gz data/eu/europe.enr-*.json data/eu/europe.tr-summary*.json data/eu/refresh 2>/dev/null || true
+          gh release view europe-caches --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create europe-caches --repo "$GITHUB_REPOSITORY" --title "Europe pipeline caches" --notes "Кэши enrich/translate/hydrate для инкрементального рефреша (refresh-eu.yml). Не для скачивания людьми."
+          gh release upload europe-caches eu-caches.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Publish input (geojson + meta) to europe-src
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload europe-src data/eu/europe.geojsonseq.gz data/eu/europe.meta.json --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Trigger tiling + deploy (tile-eu.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run tile-eu.yml --repo "$GITHUB_REPOSITORY"
